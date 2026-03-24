@@ -4,16 +4,16 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"strings"
 )
 
 //go:embed web/index.html
 var webHTML []byte
 
-// startWebServer launches a local HTTP server and returns the address.
 func startWebServer() (string, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -22,27 +22,31 @@ func startWebServer() (string, error) {
 
 	mux := http.NewServeMux()
 
-	// Serve the SPA
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(webHTML)
 	})
 
-	// API: get words
 	mux.HandleFunc("/api/words", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		text := generateWords(numWords)
-		json.NewEncoder(w).Encode(map[string]string{"text": text})
+		json.NewEncoder(w).Encode(map[string]string{"text": generateWords(numWords)})
 	})
 
-	// API: get quote
 	mux.HandleFunc("/api/quote", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		q := quotes[rand.Intn(len(quotes))]
-		json.NewEncoder(w).Encode(q)
+		json.NewEncoder(w).Encode(randomQuote())
 	})
 
-	// API: save score
+	mux.HandleFunc("/api/snippet", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		lang := r.URL.Query().Get("lang")
+		if _, ok := snippets[lang]; !ok {
+			lang = "go"
+		}
+		s := randomSnippet(lang)
+		json.NewEncoder(w).Encode(map[string]string{"code": s.Code, "lang": s.Language})
+	})
+
 	mux.HandleFunc("/api/score", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", 405)
@@ -57,19 +61,29 @@ func startWebServer() (string, error) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	// API: get scores
 	mux.HandleFunc("/api/scores", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		sb := loadScores()
-		json.NewEncoder(w).Encode(sb.Entries)
+		json.NewEncoder(w).Encode(loadScores().Entries)
 	})
 
 	addr := ln.Addr().String()
-	// Replace 0.0.0.0 with localhost for display
 	if strings.HasPrefix(addr, "0.0.0.0") {
 		addr = "localhost" + addr[7:]
 	}
-
 	go http.Serve(ln, mux)
 	return fmt.Sprintf("http://%s", addr), nil
+}
+
+func openBrowser(url string) {
+	var cmd string
+	var args []string
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "cmd"; args = []string{"/c", "start", url}
+	case "darwin":
+		cmd = "open"; args = []string{url}
+	default:
+		cmd = "xdg-open"; args = []string{url}
+	}
+	exec.Command(cmd, args...).Start()
 }
