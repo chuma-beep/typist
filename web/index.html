@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>typist</title>
+<style>
+  /* Catppuccin Mocha */
+  :root {
+    --base:    #1e1e2e;
+    --mantle:  #181825;
+    --crust:   #11111b;
+    --surface0:#313244;
+    --surface1:#45475a;
+    --overlay0:#6c7086;
+    --text:    #cdd6f4;
+    --subtext0:#a6adc8;
+    --mauve:   #cba6f7;
+    --green:   #a6e3a1;
+    --red:     #f38ba8;
+    --yellow:  #f9e2af;
+    --blue:    #89b4fa;
+    --sky:     #89dceb;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--base);
+    color: var(--text);
+    font-family: 'Courier New', Courier, monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 2rem;
+  }
+
+  header {
+    text-align: center;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--mauve);
+    letter-spacing: 0.2em;
+  }
+  .subtitle {
+    color: var(--surface1);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+  }
+
+  /* Mode / time buttons */
+  .controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .btn-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .btn {
+    background: transparent;
+    border: 1px solid var(--surface0);
+    color: var(--overlay0);
+    padding: 0.3rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--surface1); color: var(--subtext0); }
+  .btn.active {
+    background: var(--mauve);
+    border-color: var(--mauve);
+    color: var(--base);
+    font-weight: bold;
+  }
+
+  /* Typing area */
+  #typing-area {
+    width: min(680px, 100%);
+  }
+
+  #attribution {
+    color: var(--surface1);
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+    min-height: 1.2em;
+  }
+
+  #word-display {
+    font-size: 1.35rem;
+    line-height: 2.2rem;
+    height: calc(3 * 2.2rem);
+    overflow: hidden;
+    position: relative;
+    user-select: none;
+  }
+
+  .word {
+    display: inline-block;
+    margin-right: 0.45em;
+    position: relative;
+  }
+
+  .char { transition: color 0.05s; color: var(--surface1); }
+  .char.correct { color: var(--green); }
+  .char.wrong   { color: var(--red); }
+  .char.cursor  { color: var(--text); border-bottom: 2px solid var(--mauve); }
+
+  /* Stats bar */
+  .stats {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1.2rem;
+    font-size: 0.9rem;
+    color: var(--overlay0);
+  }
+  .stat-val { font-weight: bold; }
+  .stat-val.wpm  { color: var(--yellow); }
+  .stat-val.acc  { color: var(--sky); }
+  .stat-val.timer.warning { color: var(--red); }
+  .stat-val.timer { color: var(--blue); }
+
+  /* Hidden input */
+  #hidden-input {
+    position: fixed; left: -9999px; top: -9999px;
+    opacity: 0; pointer-events: none;
+  }
+
+  /* Results */
+  #results {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+  }
+  .result-card {
+    border: 1px solid var(--surface0);
+    border-radius: 10px;
+    padding: 1.5rem 2.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem 2rem;
+    text-align: left;
+  }
+  .result-label { color: var(--overlay0); font-size: 0.8rem; }
+  .result-val   { font-size: 1.6rem; font-weight: bold; }
+  .result-val.wpm   { color: var(--yellow); }
+  .result-val.acc   { color: var(--sky); }
+  .result-val.secs  { color: var(--blue); }
+  .pb-badge {
+    display: none;
+    background: var(--yellow);
+    color: var(--base);
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+  .result-actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+  }
+  .result-actions .btn { padding: 0.5rem 1.2rem; font-size: 0.9rem; }
+
+  .hint { color: var(--surface1); font-size: 0.75rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>typist</h1>
+  <div class="subtitle">offline · open source · no paywall</div>
+</header>
+
+<div class="controls">
+  <div class="btn-row" id="mode-btns">
+    <button class="btn active" data-mode="words">words</button>
+    <button class="btn"        data-mode="time">time</button>
+    <button class="btn"        data-mode="quote">quote</button>
+  </div>
+  <div class="btn-row" id="time-btns" style="display:none">
+    <button class="btn" data-secs="15">15s</button>
+    <button class="btn active" data-secs="30">30s</button>
+    <button class="btn" data-secs="60">60s</button>
+    <button class="btn" data-secs="120">120s</button>
+  </div>
+</div>
+
+<div id="typing-area">
+  <div id="attribution"></div>
+  <div id="word-display"></div>
+  <div class="stats">
+    <span><span class="stat-val wpm" id="stat-wpm">0</span> wpm</span>
+    <span><span class="stat-val acc" id="stat-acc">100</span>% acc</span>
+    <span id="timer-wrap" style="display:none"><span class="stat-val timer" id="stat-timer">30</span>s</span>
+  </div>
+  <div class="hint" style="margin-top:0.5rem">ctrl+r restart &nbsp;·&nbsp; click to focus</div>
+</div>
+
+<div id="results">
+  <div class="result-card">
+    <div>
+      <div class="result-label">wpm</div>
+      <div class="result-val wpm" id="res-wpm">0<span class="pb-badge" id="pb-badge">PB</span></div>
+    </div>
+    <div>
+      <div class="result-label">accuracy</div>
+      <div class="result-val acc" id="res-acc">0%</div>
+    </div>
+    <div>
+      <div class="result-label">time</div>
+      <div class="result-val secs" id="res-time">0s</div>
+    </div>
+    <div>
+      <div class="result-label">personal best</div>
+      <div class="result-val" id="res-pb" style="color:var(--overlay0)">—</div>
+    </div>
+  </div>
+  <div class="result-actions">
+    <button class="btn active" id="btn-again">again</button>
+    <button class="btn" id="btn-menu">change mode</button>
+  </div>
+</div>
+
+<input id="hidden-input" autocomplete="off" autocorrect="off" spellcheck="false">
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let mode = 'words';
+let timeLimitSecs = 30;
+let targetText = '';
+let attribution = '';
+let charElements = [];   // flat list of all .char spans in order
+let wordElements = [];   // list of .word divs
+
+let inputIdx = 0;        // current char position
+let totalKeys = 0;
+let errors = 0;
+
+let startTime = null;
+let timerInterval = null;
+let timeLeft = 30;
+let running = false;
+let finished = false;
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function loadTest() {
+  reset();
+
+  if (mode === 'words') {
+    const r = await fetch('/api/words');
+    const d = await r.json();
+    targetText = d.text;
+    attribution = '';
+  } else if (mode === 'time') {
+    // load lots of words
+    const r = await fetch('/api/words');
+    const d = await r.json();
+    // double them up for long tests
+    targetText = (d.text + ' ' + d.text);
+    attribution = '';
+  } else {
+    const r = await fetch('/api/quote');
+    const d = await r.json();
+    targetText = d.text;
+    attribution = '— ' + d.author;
+  }
+
+  $('attribution').textContent = attribution;
+  buildDisplay();
+  focusInput();
+}
+
+function reset() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  startTime = null;
+  inputIdx = 0;
+  totalKeys = 0;
+  errors = 0;
+  timeLeft = timeLimitSecs;
+  running = false;
+  finished = false;
+  $('hidden-input').value = '';
+  $('stat-wpm').textContent = '0';
+  $('stat-acc').textContent = '100';
+  $('stat-timer').textContent = timeLimitSecs;
+  $('stat-timer').classList.remove('warning');
+  $('results').style.display = 'none';
+  $('typing-area').style.display = '';
+  $('controls').style.display = '';
+}
+
+// ── Display builder ────────────────────────────────────────────────────────────
+function buildDisplay() {
+  const display = $('word-display');
+  display.innerHTML = '';
+  charElements = [];
+  wordElements = [];
+
+  const words = targetText.split(' ');
+  words.forEach((word, wi) => {
+    const wordEl = document.createElement('div');
+    wordEl.className = 'word';
+
+    word.split('').forEach(ch => {
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.textContent = ch;
+      wordEl.appendChild(span);
+      charElements.push(span);
+    });
+
+    // space after word (except last)
+    if (wi < words.length - 1) {
+      const sp = document.createElement('span');
+      sp.className = 'char';
+      sp.textContent = ' ';
+      wordEl.appendChild(sp);
+      charElements.push(sp);
+    }
+
+    display.appendChild(wordEl);
+    wordElements.push(wordEl);
+  });
+
+  // set cursor on first char
+  if (charElements.length > 0) charElements[0].classList.add('cursor');
+}
+
+// ── Input handling ─────────────────────────────────────────────────────────────
+$('hidden-input').addEventListener('keydown', e => {
+  if (finished) return;
+  if (e.ctrlKey && e.key === 'r') { e.preventDefault(); loadTest(); return; }
+  if (e.key === 'Backspace') { e.preventDefault(); handleBackspace(); return; }
+});
+
+$('hidden-input').addEventListener('input', e => {
+  if (finished) return;
+  const val = $('hidden-input').value;
+  if (!val) return;
+  const ch = val[val.length - 1];
+  $('hidden-input').value = '';
+  handleChar(ch);
+});
+
+function handleChar(ch) {
+  if (inputIdx >= charElements.length) return;
+
+  if (!running) {
+    running = true;
+    startTime = Date.now();
+    if (mode === 'time') startCountdown();
+    else startLiveWPM();
+  }
+
+  const expected = targetText[inputIdx];
+  totalKeys++;
+  if (ch !== expected) errors++;
+
+  charElements[inputIdx].classList.remove('cursor');
+  charElements[inputIdx].classList.add(ch === expected ? 'correct' : 'wrong');
+  inputIdx++;
+  scrollIfNeeded();
+
+  if (inputIdx < charElements.length) {
+    charElements[inputIdx].classList.add('cursor');
+  }
+
+  // word/quote mode: finish when done
+  if (mode !== 'time' && inputIdx >= charElements.length) {
+    endTest();
+  }
+
+  updateStats();
+}
+
+function handleBackspace() {
+  if (inputIdx === 0) return;
+  inputIdx--;
+  charElements[inputIdx].classList.remove('correct', 'wrong', 'cursor');
+  charElements[inputIdx].classList.add('cursor');
+  if (charElements[inputIdx + 1]) charElements[inputIdx + 1].classList.remove('cursor');
+  scrollIfNeeded();
+  updateStats();
+}
+
+// ── Scroll (keep cursor line visible) ─────────────────────────────────────────
+function scrollIfNeeded() {
+  const display = $('word-display');
+  const cursorEl = charElements[Math.min(inputIdx, charElements.length - 1)];
+  const lineH = parseFloat(getComputedStyle(display).lineHeight) || 35;
+  const cursorTop = cursorEl.parentElement.offsetTop;
+  const visH = display.clientHeight;
+  if (cursorTop + lineH > display.scrollTop + visH) {
+    display.scrollTop = cursorTop + lineH - visH + lineH * 0.5;
+  }
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+function updateStats() {
+  $('stat-wpm').textContent = Math.round(calcWPM());
+  $('stat-acc').textContent = Math.round(calcAcc());
+}
+
+function calcWPM() {
+  if (!startTime) return 0;
+  const mins = (Date.now() - startTime) / 60000;
+  if (mins === 0) return 0;
+  let correct = 0;
+  for (let i = 0; i < inputIdx; i++) {
+    if (targetText[i] === (charElements[i].classList.contains('correct') ? targetText[i] : null)) correct++;
+  }
+  // count correct chars
+  correct = charElements.slice(0, inputIdx).filter(el => el.classList.contains('correct')).length;
+  return correct / 5 / mins;
+}
+
+function calcAcc() {
+  if (!totalKeys) return 100;
+  return (totalKeys - errors) / totalKeys * 100;
+}
+
+// ── Timers ─────────────────────────────────────────────────────────────────────
+function startCountdown() {
+  $('timer-wrap').style.display = '';
+  $('stat-timer').textContent = timeLeft;
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    $('stat-timer').textContent = timeLeft;
+    if (timeLeft <= 10) $('stat-timer').classList.add('warning');
+    updateStats();
+    if (timeLeft <= 0) endTest();
+  }, 1000);
+}
+
+function startLiveWPM() {
+  timerInterval = setInterval(updateStats, 500);
+}
+
+// ── End test ───────────────────────────────────────────────────────────────────
+async function endTest() {
+  clearInterval(timerInterval);
+  finished = true;
+  const elapsed = (Date.now() - startTime) / 1000;
+  const wpm = Math.round(calcWPM());
+  const acc = calcAcc().toFixed(1);
+
+  // Save score
+  await fetch('/api/score', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      wpm, accuracy: parseFloat(acc),
+      mode,
+      duration_seconds: mode === 'time' ? timeLimitSecs : 0,
+      at: new Date().toISOString()
+    })
+  });
+
+  // Fetch all scores to determine PB
+  const res = await fetch('/api/scores');
+  const scores = await res.json();
+  const filtered = (scores || []).filter(s =>
+    s.mode === mode && s.duration_seconds === (mode === 'time' ? timeLimitSecs : 0)
+  );
+  const pb = filtered.length ? Math.max(...filtered.map(s => s.wpm)) : wpm;
+  const isPB = wpm >= pb;
+
+  // Show results
+  $('typing-area').style.display = 'none';
+  $('controls').style.display = 'none';
+  $('results').style.display = 'flex';
+
+  $('res-wpm').childNodes[0].textContent = wpm;
+  $('res-acc').textContent = acc + '%';
+  $('res-time').textContent = elapsed.toFixed(1) + 's';
+  $('res-pb').textContent = pb + ' wpm';
+
+  if (isPB) $('pb-badge').style.display = 'inline';
+  else $('pb-badge').style.display = 'none';
+}
+
+// ── Button wiring ──────────────────────────────────────────────────────────────
+$('mode-btns').querySelectorAll('.btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('mode-btns').querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    $('time-btns').style.display = mode === 'time' ? 'flex' : 'none';
+    $('timer-wrap').style.display = 'none';
+    loadTest();
+  });
+});
+
+$('time-btns').querySelectorAll('.btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('time-btns').querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    timeLimitSecs = parseInt(btn.dataset.secs);
+    loadTest();
+  });
+});
+
+$('btn-again').addEventListener('click', loadTest);
+$('btn-menu').addEventListener('click', () => {
+  reset();
+  $('typing-area').style.display = '';
+  $('controls').style.display = '';
+  loadTest();
+});
+
+$('word-display').addEventListener('click', focusInput);
+
+function focusInput() {
+  $('hidden-input').focus();
+}
+
+// Keyboard shortcut
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'r') { e.preventDefault(); loadTest(); }
+  if (!finished) focusInput();
+});
+
+// ── Bootstrap ──────────────────────────────────────────────────────────────────
+loadTest();
+</script>
+</body>
+</html>
