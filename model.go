@@ -767,50 +767,45 @@ func (m Model) pendingWithHL(pos int, display string) string {
 // ── Results view ──────────────────────────────────────────────────────────────
 
 func (m Model) viewResults() string {
-	dur := 0
-	if m.mode == modeTime {
-		dur = timeLimits[m.timeLimitIdx]
-	}
-	pb := personalBest(m.modeKey(), m.langKey(), dur)
-
-	// ── Stat blocks: big number + small label below ───────────────────────
-	// Use a large bold style for the numbers to give visual weight.
-	numStyle := lipgloss.NewStyle().Bold(true)
-
-	wpmNum := numStyle.Foreground(activeTheme.wpm).Render(fmt.Sprintf("%.0f", m.finalWPM))
-	accNum := numStyle.Foreground(activeTheme.acc).Render(fmt.Sprintf("%.1f%%", m.finalAcc))
-	timeNum := numStyle.Foreground(activeTheme.timer).Render(fmt.Sprintf("%.1fs", m.elapsed.Seconds()))
-	pbNum := numStyle.Foreground(activeTheme.subtle).Render(fmt.Sprintf("%.0f", pb))
+	header := titleStyle.Render("results")
 
 	pbBadge := ""
 	if m.isPB {
-		pbBadge = "  " + pbStyle.Render(" new best! ")
+		pbBadge = pbStyle.Render("  new best! ")
 	}
 
-	colW := 12
-	wpmCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, wpmNum+pbBadge, subtleStyle.Render("wpm")))
-	accCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, accNum, subtleStyle.Render("acc")))
-	timeCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, timeNum, subtleStyle.Render("time")))
-	pbCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, pbNum, subtleStyle.Render("best")))
+	bigWPM := lipgloss.NewStyle().
+		Foreground(activeTheme.wpm).
+		Bold(true).
+		Width(20).
+		Render(fmt.Sprintf("%.0f", m.finalWPM))
 
-	statsRow := lipgloss.JoinHorizontal(lipgloss.Bottom, wpmCol, accCol, timeCol, pbCol)
+	bigAcc := lipgloss.NewStyle().
+		Foreground(activeTheme.acc).
+		Bold(true).
+		Width(12).
+		Render(fmt.Sprintf("%.1f%%", m.finalAcc))
 
-	// ── Divider ───────────────────────────────────────────────────────────
-	divW := colW * 4
+	bigTime := lipgloss.NewStyle().
+		Foreground(activeTheme.timer).
+		Bold(true).
+		Width(12).
+		Render(fmt.Sprintf("%.1fs", m.elapsed.Seconds()))
+
+	statsLine := lipgloss.JoinHorizontal(lipgloss.Bottom,
+		bigWPM+pbBadge,
+		bigAcc+subtleStyle.Render("  acc"),
+		bigTime+subtleStyle.Render("  time"),
+	)
+
+	divW := 50
 	div := subtleStyle.Render(strings.Repeat("─", divW))
 
-	// ── Vertical bar chart ────────────────────────────────────────────────
 	chartRows := m.renderBarChart(divW)
 
-	// ── Keyboard heatmap ──────────────────────────────────────────────────
 	kbRows := m.renderKeyboard()
 
-	// ── Actions ───────────────────────────────────────────────────────────
-	sep := hintStyle.Render("  ·  ")
+	sep := hintStyle.Render(" · ")
 	actions := lipgloss.JoinHorizontal(lipgloss.Top,
 		pendingStyle.Render("enter"), hintStyle.Render(" again"),
 		sep, pendingStyle.Render("m"), hintStyle.Render(" menu"),
@@ -825,7 +820,7 @@ func (m Model) viewResults() string {
 		exportLine = "\n" + m.exportMsg
 	}
 
-	parts := []string{"", statsRow, "", div, ""}
+	parts := []string{header, "", statsLine, "", div}
 	parts = append(parts, chartRows...)
 	if len(kbRows) > 0 {
 		parts = append(parts, "", hintStyle.Render("mistakes"))
