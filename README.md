@@ -1,5 +1,3 @@
-Here's your README ready to copy & paste:
-
 ---
 
 <div align="center">
