@@ -37,7 +37,7 @@ var mocha = Theme{
 	correct: "#a6e3a1", wrong: "#f38ba8", pending: "#45475a",
 	cursor: "#cdd6f4", title: "#cba6f7", wpm: "#f9e2af",
 	acc: "#89dceb", timer: "#89b4fa", subtle: "#585b70",
-	hint: "#313244", pbFg: "#1e1e2e", pbBg: "#f9e2af",
+	hint: "#585b70", pbFg: "#1e1e2e", pbBg: "#f9e2af",
 	menuSel: "#1e1e2e", menuSelB: "#cba6f7", menuDim: "#585b70",
 	border: "#313244",
 	hlKw:   "#cba6f7", hlBi: "#89dceb", hlStr: "#a6e3a1",
