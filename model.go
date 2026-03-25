@@ -18,6 +18,7 @@ const (
 	stateTyping
 	stateResults
 	stateHistory
+	stateConfirm
 )
 
 type testMode int
@@ -117,6 +118,8 @@ type Model struct {
 	finalAcc  float64
 	isPB      bool
 	exportMsg string
+
+	confirmQuit bool
 
 	// pre-computed token kinds for syntax highlighting
 	// per-rune Chroma styles (code mode only)
@@ -240,6 +243,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateResults(msg)
 		case stateHistory:
 			return m.updateHistory(msg)
+		case stateConfirm:
+			return m.updateConfirm(msg)
 		}
 	}
 	return m, nil
@@ -251,7 +256,8 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	subCount := m.subRowCount()
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
-		return m, tea.Quit
+		m.state = stateConfirm
+		return m, nil
 	case tea.KeyLeft:
 		if m.menuRow == 0 {
 			m.menuCol = (m.menuCol + modeCount - 1) % modeCount
@@ -322,7 +328,8 @@ func (m *Model) applySubRow() {
 func (m Model) updateTyping(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
-		return m, tea.Quit
+		m.state = stateConfirm
+		return m, nil
 	case tea.KeyCtrlR:
 		m.loadText()
 		m.state = stateTyping
@@ -421,7 +428,8 @@ func (m Model) finishTest() Model {
 func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
-		return m, tea.Quit
+		m.state = stateConfirm
+		return m, nil
 	case tea.KeyEnter:
 		return m.restart()
 	case tea.KeyRunes:
@@ -491,6 +499,26 @@ func (m Model) updateHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// ── Confirm ────────────────────────────────────────────────────────────────────
+
+func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyCtrlC:
+		return m, nil
+	case tea.KeyEnter, tea.KeyRunes:
+		switch string(msg.Runes) {
+		case "y", "Y", "q", "Q":
+			return m, tea.Quit
+		case "n", "N":
+			m.state = stateMenu
+			m.confirmQuit = false
+		default:
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
 // ── Metrics ───────────────────────────────────────────────────────────────────
 
 func (m Model) calcWPM() float64 {
@@ -533,6 +561,8 @@ func (m Model) View() string {
 		return m.viewResults()
 	case stateHistory:
 		return m.viewHistory()
+	case stateConfirm:
+		return m.viewConfirm()
 	}
 	return ""
 }
@@ -1063,5 +1093,17 @@ func (m Model) viewHistory() string {
 	parts = append(parts, "", nav)
 
 	body := lipgloss.JoinVertical(lipgloss.Left, parts...)
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, body)
+}
+
+func (m Model) viewConfirm() string {
+	body := lipgloss.JoinVertical(lipgloss.Center,
+		titleStyle.Render("quit?"),
+		"",
+		subtleStyle.Render("any progress will be lost"),
+		"",
+		hintStyle.Render("enter / y / q")+subtleStyle.Render("  quit"),
+		hintStyle.Render("esc / n")+subtleStyle.Render("       cancel"),
+	)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, body)
 }
