@@ -100,7 +100,9 @@ type Model struct {
 	elapsed     time.Duration
 	started     bool
 
-	blindMode bool
+	blindMode  bool
+	focusMode  bool // hide stats while typing
+	darkTheme  bool // true = mocha, false = latte
 
 	totalKeys int
 	errors    int
@@ -118,7 +120,8 @@ type Model struct {
 	exportMsg   string
 
 	// pre-computed token kinds for syntax highlighting
-	tokenKinds []tokenKind
+	// per-rune Chroma styles (code mode only)
+	hlMap StyleMap
 
 	menuRow int
 	menuCol int
@@ -140,6 +143,7 @@ func NewModel() Model {
 		timeLimitIdx: 1,
 		langIdx:      0,
 		mistakeMap:   make(map[rune]int),
+		darkTheme:    true,
 	}
 }
 
@@ -158,7 +162,13 @@ func (m *Model) loadText() {
 		text = m.activeSnippet.Code
 	}
 	m.target = []rune(text)
-	m.lines, m.offsets = wrapIntoLines(text, lineWidth)
+	// Code mode: preserve actual newlines and indentation.
+	// All other modes: soft-wrap prose at lineWidth.
+	if m.mode == modeCode {
+		m.lines, m.offsets = wrapCodeLines(text)
+	} else {
+		m.lines, m.offsets = wrapIntoLines(text, lineWidth)
+	}
 	m.input = nil
 	m.totalKeys = 0
 	m.errors = 0
@@ -170,11 +180,11 @@ func (m *Model) loadText() {
 	if m.mode == modeTime {
 		m.timeLeft = timeLimits[m.timeLimitIdx]
 	}
-	// Pre-tokenize for syntax highlighting
+	// Build Chroma style map for code mode.
 	if m.mode == modeCode {
-		m.tokenKinds = Tokenize(text, langKeys[m.langIdx])
+		m.hlMap = BuildStyleMap(text, langKeys[m.langIdx])
 	} else {
-		m.tokenKinds = nil
+		m.hlMap = nil
 	}
 }
 
@@ -320,6 +330,21 @@ func (m Model) updateTyping(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tickCmd()
 	case tea.KeyCtrlB:
 		m.blindMode = !m.blindMode
+		return m, nil
+	case tea.KeyCtrlF:
+		m.focusMode = !m.focusMode
+		return m, nil
+	case tea.KeyCtrlT:
+		m.darkTheme = !m.darkTheme
+		if m.darkTheme {
+			applyTheme(mocha)
+		} else {
+			applyTheme(latte)
+		}
+		// Rebuild hlMap with new styles
+		if m.mode == modeCode && len(m.target) > 0 {
+			m.hlMap = BuildStyleMap(string(m.target), langKeys[m.langIdx])
+		}
 		return m, nil
 	}
 	return m.handleTypingKey(msg)
@@ -628,8 +653,8 @@ func (m Model) viewTyping() string {
 				sb.WriteString(cursorStyle.Render(display))
 			} else {
 				// Pending — apply syntax highlighting in code mode
-				if m.mode == modeCode && m.tokenKinds != nil && absPos < len(m.tokenKinds) {
-					sb.WriteString(m.pendingWithHL(ch, absPos, display))
+				if m.mode == modeCode && m.hlMap != nil {
+					sb.WriteString(m.pendingWithHL(absPos, display))
 				} else {
 					sb.WriteString(pendingStyle.Render(display))
 				}
@@ -658,54 +683,42 @@ func (m Model) viewTyping() string {
 		langTag = "   " + subtleStyle.Render(langKeys[m.langIdx])
 	}
 
-	stats := lipgloss.JoinHorizontal(lipgloss.Top,
-		wpmStyle.Render(fmt.Sprintf("%.0f", m.calcWPM())),
-		subtleStyle.Render(" wpm   "),
-		accStyle.Render(fmt.Sprintf("%.0f%%", m.calcAccuracy())),
-		subtleStyle.Render(" acc"),
-		timerPart, langTag, blindTag,
-	)
-
-	var meta string
-	switch m.mode {
-	case modeQuote:
-		meta = subtleStyle.Render("— " + m.activeQuote.Author)
-	case modeCode:
-		meta = subtleStyle.Render(langKeys[m.langIdx] + " · tab and enter are live · ctrl+b blind")
-	}
-
-	hint := hintStyle.Render("ctrl+r restart · ctrl+b blind · esc quit")
-
 	var parts []string
-	parts = append(parts, stats, "")
-	if meta != "" {
-		parts = append(parts, meta)
+	if !m.focusMode {
+		stats := lipgloss.JoinHorizontal(lipgloss.Top,
+			wpmStyle.Render(fmt.Sprintf("%.0f", m.calcWPM())),
+			subtleStyle.Render(" wpm   "),
+			accStyle.Render(fmt.Sprintf("%.0f%%", m.calcAccuracy())),
+			subtleStyle.Render(" acc"),
+			timerPart, langTag, blindTag,
+		)
+		parts = append(parts, stats, "")
+
+		var meta string
+		switch m.mode {
+		case modeQuote:
+			meta = subtleStyle.Render("— " + m.activeQuote.Author)
+		case modeCode:
+			meta = subtleStyle.Render(langKeys[m.langIdx] + " · tab+enter live")
+		}
+		if meta != "" {
+			parts = append(parts, meta)
+		}
 	}
+
+	hint := hintStyle.Render("ctrl+r restart · ctrl+b blind · ctrl+f focus · ctrl+t theme · esc quit")
 	parts = append(parts, textBlock, "", hint)
 
 	body := lipgloss.JoinVertical(lipgloss.Left, parts...)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, body)
 }
 
-// pendingWithHL returns a styled string for a pending char using token type.
-func (m Model) pendingWithHL(ch rune, pos int, display string) string {
-	kind := m.tokenKinds[pos]
-	switch kind {
-	case tokenKeyword:
-		return hlKeyword.Render(display)
-	case tokenBuiltin:
-		return hlBuiltin.Render(display)
-	case tokenString:
-		return hlString.Render(display)
-	case tokenComment:
-		return hlComment.Render(display)
-	case tokenNumber:
-		return hlNumber.Render(display)
-	case tokenPunct:
-		return hlPunct.Render(display)
-	default:
-		return pendingStyle.Render(display)
+// pendingWithHL returns a styled string for a pending char using the Chroma StyleMap.
+func (m Model) pendingWithHL(pos int, display string) string {
+	if pos < len(m.hlMap) {
+		return m.hlMap[pos].Render(display)
 	}
+	return pendingStyle.Render(display)
 }
 
 // ── Results view ──────────────────────────────────────────────────────────────

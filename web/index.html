@@ -7,112 +7,109 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {
-  --base:    #1e1e2e; --mantle: #181825; --crust: #11111b;
-  --s0: #313244; --s1: #45475a; --ov0: #6c7086;
-  --text: #cdd6f4; --sub0: #a6adc8;
-  --mauve: #cba6f7; --green: #a6e3a1; --red: #f38ba8;
-  --yellow: #f9e2af; --blue: #89b4fa; --sky: #89dceb;
-  --peach: #fab387;
+  --base:#1e1e2e; --mantle:#181825; --s0:#313244; --s1:#45475a; --ov0:#6c7086;
+  --text:#cdd6f4; --sub0:#a6adc8;
+  --mauve:#cba6f7; --green:#a6e3a1; --red:#f38ba8;
+  --yellow:#f9e2af; --blue:#89b4fa; --sky:#89dceb; --peach:#fab387;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: var(--base); color: var(--text);
-  font-family: 'Courier New', monospace;
-  min-height: 100vh; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 1.5rem; padding: 2rem;
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--base);color:var(--text);
+  font-family:'Courier New',monospace;
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1.5rem;padding:2rem;
 }
-header { text-align: center; }
-h1 { font-size: 2rem; color: var(--mauve); letter-spacing: .2em; }
-.subtitle { color: var(--s1); font-size: .8rem; margin-top: .25rem; }
-
-.controls { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
-.btn-row { display: flex; gap: .4rem; }
-.btn {
-  background: transparent; border: 1px solid var(--s0);
-  color: var(--ov0); padding: .25rem .8rem; border-radius: 6px;
-  cursor: pointer; font-family: inherit; font-size: .85rem; transition: all .15s;
+header{text-align:center;}
+h1{font-size:2rem;color:var(--mauve);letter-spacing:.2em;}
+.subtitle{color:var(--s1);font-size:.8rem;margin-top:.25rem;}
+.controls{display:flex;flex-direction:column;align-items:center;gap:.5rem;}
+.btn-row{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;}
+.btn{
+  background:transparent;border:1px solid var(--s0);color:var(--ov0);
+  padding:.25rem .8rem;border-radius:6px;cursor:pointer;
+  font-family:inherit;font-size:.85rem;transition:all .15s;
 }
-.btn:hover { border-color: var(--s1); color: var(--sub0); }
-.btn.active { background: var(--mauve); border-color: var(--mauve); color: var(--base); font-weight: bold; }
+.btn:hover{border-color:var(--s1);color:var(--sub0);}
+.btn.active{background:var(--mauve);border-color:var(--mauve);color:var(--base);font-weight:bold;}
 
-#typing-area { width: min(700px, 100%); }
-#attribution { color: var(--s1); font-size: .8rem; margin-bottom: .4rem; min-height: 1.2em; }
+/* ── Typing area ── */
+#typing-area{width:min(720px,100%);}
+#attribution{color:var(--s1);font-size:.78rem;margin-bottom:.4rem;min-height:1.1em;}
 
-#word-display {
-  font-size: 1.3rem; line-height: 2.1rem;
-  height: calc(3 * 2.1rem); overflow: hidden; user-select: none;
+/* Code display: pre-formatted, line by line */
+#word-display{
+  font-size:1.2rem;line-height:1.9rem;
+  height:calc(3*1.9rem);overflow:hidden;user-select:none;
 }
-.word { display: inline-block; margin-right: .4em; position: relative; }
-.char { transition: color .04s; color: var(--s1); }
-.char.correct { color: var(--green); }
-.char.wrong   { color: var(--red); }
-.char.cursor  { color: var(--text); border-bottom: 2px solid var(--mauve); }
+/* Code mode: each line is a block div */
+.code-line{display:block;white-space:pre;}
+/* Prose mode: inline spans flow naturally */
+.word{display:inline-block;margin-right:.4em;}
 
-/* Syntax highlight colors for pending chars */
-.char.hl-keyword { color: var(--mauve); }
-.char.hl-builtin { color: var(--sky); }
-.char.hl-string  { color: var(--green); }
-.char.hl-comment { color: var(--ov0); }
-.char.hl-number  { color: var(--peach); }
-.char.hl-punct   { color: var(--blue); }
+.char{color:var(--s1);}
+.char.correct{color:var(--green);}
+.char.wrong{color:var(--red);}
+.char.cursor{color:var(--text);border-bottom:2px solid var(--mauve);}
+/* Syntax highlight classes (pending chars) */
+.char.hl-keyword{color:var(--mauve);}
+.char.hl-builtin{color:var(--sky);}
+.char.hl-string{color:var(--green);}
+.char.hl-comment{color:var(--ov0);}
+.char.hl-number{color:var(--peach);}
+.char.hl-punct{color:var(--blue);}
 
-.stats { display: flex; gap: 2rem; margin-top: 1rem; font-size: .9rem; color: var(--ov0); }
-.sv { font-weight: bold; }
-.sv.wpm   { color: var(--yellow); }
-.sv.acc   { color: var(--sky); }
-.sv.timer { color: var(--blue); }
-.sv.timer.warn { color: var(--red); }
-#hidden-input { position: fixed; left: -9999px; opacity: 0; pointer-events: none; }
+.stats{display:flex;gap:1.5rem;margin-top:1rem;font-size:.9rem;color:var(--ov0);flex-wrap:wrap;}
+.sv{font-weight:bold;}
+.sv.wpm{color:var(--yellow);}
+.sv.acc{color:var(--sky);}
+.sv.timer{color:var(--blue);}
+.sv.timer.warn{color:var(--red);}
+.hint{color:var(--s1);font-size:.7rem;margin-top:.3rem;}
+#hidden-input{position:fixed;left:-9999px;opacity:0;pointer-events:none;}
 
-/* WPM Chart */
-#chart-wrap {
-  width: min(700px, 100%); display: none;
-  background: var(--mantle); border: 1px solid var(--s0);
-  border-radius: 8px; padding: .75rem 1rem .5rem;
+/* ── WPM Chart ── */
+#chart-wrap{
+  width:min(720px,100%);display:none;
+  background:var(--mantle);border:1px solid var(--s0);
+  border-radius:8px;padding:.75rem 1rem .5rem;
 }
-#chart-wrap h3 { font-size: .75rem; color: var(--ov0); margin-bottom: .5rem; font-weight: normal; }
-#wpm-chart { max-height: 100px; }
+#chart-wrap h3{font-size:.75rem;color:var(--ov0);margin-bottom:.5rem;font-weight:normal;}
+#wpm-chart{max-height:110px;}
 
-/* Results */
-#results { display: none; flex-direction: column; align-items: center; gap: 1rem; }
-.result-card {
-  border: 1px solid var(--s0); border-radius: 10px;
-  padding: 1.5rem 2.5rem; display: grid;
-  grid-template-columns: 1fr 1fr; gap: .4rem 2.5rem; text-align: left;
+/* ── Keyboard heatmap ── */
+#heatmap-wrap{
+  width:min(720px,100%);display:none;
+  background:var(--mantle);border:1px solid var(--s0);
+  border-radius:8px;padding:.75rem 1rem;
 }
-.rl { color: var(--ov0); font-size: .75rem; }
-.rv { font-size: 1.5rem; font-weight: bold; }
-.rv.wpm  { color: var(--yellow); }
-.rv.acc  { color: var(--sky); }
-.rv.secs { color: var(--blue); }
-.pb-badge {
-  display: none; background: var(--yellow); color: var(--base);
-  font-size: .65rem; font-weight: bold; padding: .1rem .4rem;
-  border-radius: 3px; margin-left: .4rem; vertical-align: middle;
+#heatmap-wrap h3{font-size:.75rem;color:var(--ov0);margin-bottom:.6rem;font-weight:normal;}
+.kb-row{display:flex;gap:3px;margin-bottom:3px;}
+.key{
+  min-width:30px;height:30px;border-radius:4px;
+  background:var(--s0);color:var(--sub0);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;border:1px solid var(--s1);
+  transition:background .3s;cursor:default;
 }
-.result-actions { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: center; }
-.result-actions .btn { padding: .4rem 1rem; }
+.key.w15{min-width:46px;}.key.w2{min-width:60px;}.key.spc{min-width:190px;}
 
-/* Keyboard heatmap */
-#heatmap-wrap {
-  width: min(700px, 100%); display: none;
-  background: var(--mantle); border: 1px solid var(--s0);
-  border-radius: 8px; padding: .75rem 1rem;
+/* ── Results ── */
+#results{display:none;flex-direction:column;align-items:center;gap:1rem;}
+.result-card{
+  border:1px solid var(--s0);border-radius:10px;
+  padding:1.4rem 2.2rem;display:grid;
+  grid-template-columns:1fr 1fr;gap:.4rem 2.5rem;
 }
-#heatmap-wrap h3 { font-size: .75rem; color: var(--ov0); margin-bottom: .6rem; font-weight: normal; }
-.kb-row { display: flex; gap: 4px; margin-bottom: 4px; }
-.key {
-  min-width: 32px; height: 32px; border-radius: 4px;
-  background: var(--s0); color: var(--sub0);
-  display: flex; align-items: center; justify-content: center;
-  font-size: .7rem; position: relative; transition: background .3s;
-  border: 1px solid var(--s1);
+.rl{color:var(--ov0);font-size:.72rem;}
+.rv{font-size:1.4rem;font-weight:bold;}
+.rv.wpm{color:var(--yellow);}.rv.acc{color:var(--sky);}.rv.secs{color:var(--blue);}
+.pb-badge{
+  display:none;background:var(--yellow);color:var(--base);
+  font-size:.6rem;font-weight:bold;padding:.1rem .35rem;
+  border-radius:3px;margin-left:.35rem;vertical-align:middle;
 }
-.key.wide-15 { min-width: 48px; }
-.key.wide-2  { min-width: 64px; }
-.key.space   { min-width: 200px; }
-
-.hint { color: var(--s1); font-size: .7rem; margin-top: .3rem; }
+.result-actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;}
+.result-actions .btn{padding:.4rem 1rem;}
 </style>
 </head>
 <body>
@@ -140,7 +137,7 @@ h1 { font-size: 2rem; color: var(--mauve); letter-spacing: .2em; }
     <span><span class="sv acc" id="st-acc">100</span>% acc</span>
     <span id="timer-wrap" style="display:none"><span class="sv timer" id="st-timer">30</span>s</span>
   </div>
-  <div class="hint">ctrl+r restart · click to focus</div>
+  <div class="hint">ctrl+r restart &nbsp;·&nbsp; click to focus</div>
 </div>
 
 <div id="chart-wrap">
@@ -172,39 +169,36 @@ h1 { font-size: 2rem; color: var(--mauve); letter-spacing: .2em; }
 <script>
 const $ = id => document.getElementById(id);
 
-// ── Config ─────────────────────────────────────────────────────────────────────
+// ── Config ──────────────────────────────────────────────────────────────────
 let mode = 'words', subOption = '';
 const subOptions = {
   time: ['15s','30s','60s','120s'],
   code: ['go','js','python','rust'],
 };
-const timeSecs = { '15s':15, '30s':30, '60s':60, '120s':120 };
+const timeSecs = {'15s':15,'30s':30,'60s':60,'120s':120};
 
-// ── State ──────────────────────────────────────────────────────────────────────
-let targetText = '', attribution = '', tokenKinds = [];
-let charEls = [], wordEls = [];
+// ── State ───────────────────────────────────────────────────────────────────
+let targetText = '', serverKinds = []; // kinds from Chroma via /api/snippet
+let charEls = [];
 let inputIdx = 0, totalKeys = 0, errors = 0;
 let startTime = null, timerInterval = null, timeLeft = 30;
 let running = false, finished = false;
-let mistakeMap = {};   // char -> count
-let wpmHistory = [];   // {t, wpm} — one per second
-let wpmChart = null;
-let wpmSampleInterval = null;
+let mistakeMap = {}, wpmHistory = [];
+let wpmChart = null, wpmInterval = null;
 
-// ── Sub-option buttons ─────────────────────────────────────────────────────────
+// ── Sub-option row ──────────────────────────────────────────────────────────
 function buildSubBtns() {
   const opts = subOptions[mode];
   const wrap = $('sub-btns');
-  if (!opts) { wrap.style.display = 'none'; return; }
+  if (!opts) { wrap.style.display='none'; return; }
   wrap.style.display = 'flex';
   wrap.innerHTML = '';
   opts.forEach((label, i) => {
     const b = document.createElement('button');
-    b.className = 'btn' + (i === 0 ? ' active' : '');
+    b.className = 'btn' + (i===0 ? ' active' : '');
     b.textContent = label;
-    b.dataset.sub = label;
     b.onclick = () => {
-      wrap.querySelectorAll('.btn').forEach(x => x.classList.remove('active'));
+      wrap.querySelectorAll('.btn').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
       subOption = label;
       loadTest();
@@ -214,109 +208,44 @@ function buildSubBtns() {
   subOption = opts[0];
 }
 
-// ── Syntax tokenizer (JS port of highlight.go) ─────────────────────────────────
-const keywords = {
-  go: new Set(['break','case','chan','const','continue','default','defer','else','fallthrough','for','func','go','goto','if','import','interface','map','package','range','return','select','struct','switch','type','var']),
-  go_builtin: new Set(['append','cap','close','copy','delete','error','false','iota','len','make','new','nil','panic','print','println','recover','string','true','bool','byte','int','int8','int16','int32','int64','uint','uint8','uint16','uint32','uint64','float32','float64','complex64','complex128','rune','any']),
-  js: new Set(['async','await','break','case','catch','class','const','continue','default','delete','do','else','export','extends','false','finally','for','function','if','import','in','instanceof','let','new','null','of','return','static','super','switch','this','throw','true','try','typeof','undefined','var','void','while','yield']),
-  js_builtin: new Set(['Array','Boolean','console','Date','Error','fetch','JSON','Map','Math','Number','Object','Promise','Set','String','setTimeout','clearTimeout']),
-  python: new Set(['and','as','assert','async','await','break','class','continue','def','del','elif','else','except','False','finally','for','from','global','if','import','in','is','lambda','None','nonlocal','not','or','pass','raise','return','True','try','while','with','yield']),
-  python_builtin: new Set(['dict','enumerate','filter','float','input','int','isinstance','len','list','map','max','min','open','print','range','reversed','set','sorted','str','sum','tuple','type','zip']),
-  rust: new Set(['as','async','await','break','const','continue','crate','dyn','else','enum','extern','false','fn','for','if','impl','in','let','loop','match','mod','move','mut','pub','ref','return','self','Self','static','struct','super','trait','true','type','unsafe','use','where','while']),
-  rust_builtin: new Set(['bool','char','f32','f64','i8','i16','i32','i64','i128','isize','Option','panic','println','Result','Some','None','Ok','Err','String','str','u8','u16','u32','u64','u128','usize','Vec','Box','HashMap','HashSet']),
-};
-
-function tokenize(text, lang) {
-  const kinds = new Array(text.length).fill('normal');
-  const kw = keywords[lang] || new Set();
-  const bi = keywords[lang + '_builtin'] || new Set();
-  const lineComment = lang === 'python' ? '#' : '//';
-  const strDelims = new Set(lang === 'python' ? ['"', "'"] : ['"', "'", '`']);
-  let i = 0;
-
-  while (i < text.length) {
-    // Line comment
-    if (text.startsWith(lineComment, i)) {
-      let end = text.indexOf('\n', i);
-      if (end === -1) end = text.length;
-      kinds.fill('comment', i, end);
-      i = end; continue;
-    }
-    // Block comment
-    if (text.startsWith('/*', i)) {
-      let end = text.indexOf('*/', i + 2);
-      if (end === -1) end = text.length - 2;
-      kinds.fill('comment', i, end + 2);
-      i = end + 2; continue;
-    }
-    // String
-    if (strDelims.has(text[i])) {
-      const delim = text[i]; kinds[i] = 'string'; let j = i + 1;
-      while (j < text.length) {
-        if (text[j] === '\\') { kinds[j] = 'string'; kinds[j+1] = 'string'; j += 2; continue; }
-        kinds[j] = 'string';
-        if (text[j] === delim) { j++; break; }
-        j++;
-      }
-      i = j; continue;
-    }
-    // Number
-    if (text[i] >= '0' && text[i] <= '9') {
-      let j = i;
-      while (j < text.length && /[\d.xXa-fA-F_]/.test(text[j])) { kinds[j] = 'number'; j++; }
-      i = j; continue;
-    }
-    // Identifier
-    if (/[a-zA-Z_]/.test(text[i])) {
-      let j = i;
-      while (j < text.length && /\w/.test(text[j])) j++;
-      const word = text.slice(i, j);
-      const kind = kw.has(word) ? 'keyword' : bi.has(word) ? 'builtin' : 'normal';
-      kinds.fill(kind, i, j);
-      i = j; continue;
-    }
-    // Punct
-    if ('{}[]().,;:=<>!&|^~%+-*/\\@#?'.includes(text[i])) kinds[i] = 'punct';
-    i++;
-  }
-  return kinds;
-}
-
-// ── Load test ──────────────────────────────────────────────────────────────────
+// ── Load test ───────────────────────────────────────────────────────────────
 async function loadTest() {
   reset();
+  serverKinds = [];
+
   if (mode === 'words') {
     targetText = (await (await fetch('/api/words')).json()).text;
-    attribution = ''; tokenKinds = [];
+    $('attribution').textContent = '';
   } else if (mode === 'time') {
     const d = await (await fetch('/api/words')).json();
     targetText = d.text + ' ' + d.text;
-    attribution = ''; tokenKinds = [];
+    $('attribution').textContent = '';
   } else if (mode === 'quote') {
     const q = await (await fetch('/api/quote')).json();
-    targetText = q.text; attribution = '— ' + q.author; tokenKinds = [];
+    targetText = q.text;
+    $('attribution').textContent = '— ' + q.author;
   } else if (mode === 'code') {
     const lang = subOption || 'go';
-    const q = await (await fetch('/api/snippet?lang=' + lang)).json();
-    targetText = q.code; attribution = lang + ' snippet';
-    tokenKinds = tokenize(targetText, lang);
+    const d = await (await fetch('/api/snippet?lang='+lang)).json();
+    targetText = d.code;
+    serverKinds = d.kinds || [];  // Chroma token kinds, one per rune
+    $('attribution').textContent = lang + ' snippet';
   }
-  $('attribution').textContent = attribution;
+
   buildDisplay();
   focusInput();
 }
 
 function reset() {
-  clearInterval(timerInterval); clearInterval(wpmSampleInterval);
-  timerInterval = null; wpmSampleInterval = null;
+  clearInterval(timerInterval); clearInterval(wpmInterval);
+  timerInterval = null; wpmInterval = null;
   startTime = null; inputIdx = 0; totalKeys = 0; errors = 0;
   mistakeMap = {}; wpmHistory = [];
   timeLeft = timeSecs[subOption] || 30;
   running = false; finished = false;
   $('hidden-input').value = '';
   $('st-wpm').textContent = '0'; $('st-acc').textContent = '100';
-  $('st-timer').textContent = timeLeft;
-  $('st-timer').classList.remove('warn');
+  $('st-timer').textContent = timeLeft; $('st-timer').classList.remove('warn');
   $('results').style.display = 'none';
   $('chart-wrap').style.display = 'none';
   $('heatmap-wrap').style.display = 'none';
@@ -325,54 +254,94 @@ function reset() {
   if (wpmChart) { wpmChart.destroy(); wpmChart = null; }
 }
 
-// ── Display builder ────────────────────────────────────────────────────────────
+// ── Display builder ─────────────────────────────────────────────────────────
 function buildDisplay() {
   const display = $('word-display');
-  display.innerHTML = ''; charEls = []; wordEls = [];
+  display.innerHTML = ''; charEls = [];
 
-  const words = targetText.split(/(?<=[ \n\t])|(?=[ \n\t])/g)
-    .filter(w => w.length > 0);
-
-  let absPos = 0;
-  words.forEach(word => {
-    const wordEl = document.createElement('div');
-    wordEl.className = 'word';
-    for (let ci = 0; ci < word.length; ci++) {
-      const ch = word[ci];
-      const span = document.createElement('span');
-      span.className = 'char';
-      // Syntax highlight pending char
-      if (tokenKinds.length > absPos) {
-        const kind = tokenKinds[absPos];
-        if (kind !== 'normal') span.classList.add('hl-' + kind);
-      }
-      span.textContent = ch === '\n' ? '↵' : ch === '\t' ? '→' : ch;
-      span.dataset.ch = ch;
-      wordEl.appendChild(span);
-      charEls.push(span);
-      absPos++;
-    }
-    display.appendChild(wordEl);
-    wordEls.push(wordEl);
-  });
+  if (mode === 'code') {
+    buildCodeDisplay(display);
+  } else {
+    buildProseDisplay(display);
+  }
 
   if (charEls.length > 0) charEls[0].classList.add('cursor');
 }
 
-// ── Input ──────────────────────────────────────────────────────────────────────
+// Code display: one <div class="code-line"> per line, preserving indentation.
+// Newlines are shown as ↵ and must be typed (Enter key).
+function buildCodeDisplay(display) {
+  const lines = targetText.split(/(?<=\n)/g); // split after each \n, keep \n
+  let absPos = 0;
+  lines.forEach(line => {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'code-line';
+    for (const ch of line) {
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.dataset.ch = ch;
+      // Apply Chroma kind from server
+      if (serverKinds.length > absPos && serverKinds[absPos] !== 'normal') {
+        span.classList.add('hl-' + serverKinds[absPos]);
+      }
+      if (ch === '\n') {
+        span.textContent = '↵';
+      } else if (ch === '\t') {
+        span.textContent = '    '; // 4-space tab display
+        span.style.display = 'inline-block';
+        span.style.width = '2.4rem';
+      } else {
+        span.textContent = ch;
+      }
+      lineEl.appendChild(span);
+      charEls.push(span);
+      absPos++;
+    }
+    display.appendChild(lineEl);
+  });
+}
+
+// Prose display: words as inline-block divs, characters as spans.
+function buildProseDisplay(display) {
+  const words = targetText.split(' ');
+  let absPos = 0;
+  words.forEach((word, wi) => {
+    const wordEl = document.createElement('div');
+    wordEl.className = 'word';
+    for (const ch of word) {
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.dataset.ch = ch;
+      span.textContent = ch;
+      wordEl.appendChild(span);
+      charEls.push(span);
+      absPos++;
+    }
+    if (wi < words.length - 1) {
+      const sp = document.createElement('span');
+      sp.className = 'char'; sp.dataset.ch = ' '; sp.textContent = ' ';
+      wordEl.appendChild(sp);
+      charEls.push(sp);
+      absPos++;
+    }
+    display.appendChild(wordEl);
+  });
+}
+
+// ── Input handling ──────────────────────────────────────────────────────────
 $('hidden-input').addEventListener('keydown', e => {
   if (finished) return;
   if (e.ctrlKey && e.key === 'r') { e.preventDefault(); loadTest(); return; }
-  if (e.key === 'Backspace') { e.preventDefault(); handleBackspace(); }
-  if (e.key === 'Tab') { e.preventDefault(); handleChar('\t'); }
-  if (e.key === 'Enter' && mode === 'code') { e.preventDefault(); handleChar('\n'); }
+  if (e.key === 'Backspace') { e.preventDefault(); handleBackspace(); return; }
+  if (e.key === 'Tab') { e.preventDefault(); handleChar('\t'); return; }
+  if (e.key === 'Enter' && mode === 'code') { e.preventDefault(); handleChar('\n'); return; }
 });
 
 $('hidden-input').addEventListener('input', e => {
   if (finished) return;
   const val = $('hidden-input').value;
   if (!val) return;
-  const ch = val[val.length - 1];
+  const ch = val[val.length-1];
   $('hidden-input').value = '';
   handleChar(ch);
 });
@@ -385,12 +354,15 @@ function handleChar(ch) {
   totalKeys++;
   if (ch !== expected) {
     errors++;
-    mistakeMap[expected] = (mistakeMap[expected] || 0) + 1;
+    const disp = expected === '\n' ? 'enter' : expected === '\t' ? 'tab' : expected;
+    mistakeMap[disp] = (mistakeMap[disp]||0) + 1;
   }
-  charEls[inputIdx].classList.remove('cursor');
-  charEls[inputIdx].classList.add(ch === expected ? 'correct' : 'wrong');
-  // Remove syntax highlight class when typed
-  charEls[inputIdx].classList.remove('hl-keyword','hl-builtin','hl-string','hl-comment','hl-number','hl-punct');
+
+  const el = charEls[inputIdx];
+  el.classList.remove('cursor');
+  // Remove syntax highlight class — it's been typed now
+  el.classList.remove('hl-keyword','hl-builtin','hl-string','hl-comment','hl-number','hl-punct');
+  el.classList.add(ch === expected ? 'correct' : 'wrong');
 
   inputIdx++;
   scrollIfNeeded();
@@ -404,10 +376,9 @@ function handleBackspace() {
   inputIdx--;
   const el = charEls[inputIdx];
   el.classList.remove('correct','wrong');
-  // Restore syntax highlight class
-  if (tokenKinds.length > inputIdx) {
-    const kind = tokenKinds[inputIdx];
-    if (kind !== 'normal') el.classList.add('hl-' + kind);
+  // Restore syntax highlight class if applicable
+  if (serverKinds.length > inputIdx && serverKinds[inputIdx] !== 'normal') {
+    el.classList.add('hl-' + serverKinds[inputIdx]);
   }
   el.classList.add('cursor');
   if (charEls[inputIdx+1]) charEls[inputIdx+1].classList.remove('cursor');
@@ -418,13 +389,13 @@ function handleBackspace() {
 function scrollIfNeeded() {
   const display = $('word-display');
   const el = charEls[Math.min(inputIdx, charEls.length-1)];
-  const lh = parseFloat(getComputedStyle(display).lineHeight) || 34;
-  const top = el.parentElement.offsetTop;
+  const lh = parseFloat(getComputedStyle(display).lineHeight) || 30;
+  const top = (mode === 'code') ? el.parentElement.offsetTop : el.parentElement.offsetTop;
   if (top + lh > display.scrollTop + display.clientHeight)
     display.scrollTop = top + lh - display.clientHeight + lh * .5;
 }
 
-// ── Start / timers ─────────────────────────────────────────────────────────────
+// ── Timers & stats ──────────────────────────────────────────────────────────
 function startTest() {
   running = true; startTime = Date.now();
   if (mode === 'time') {
@@ -436,173 +407,152 @@ function startTest() {
       if (timeLeft <= 0) endTest();
     }, 1000);
   }
-  // WPM sample every second
-  wpmSampleInterval = setInterval(() => {
-    wpmHistory.push({ t: (Date.now() - startTime) / 1000, wpm: calcWPM() });
+  wpmInterval = setInterval(() => {
+    wpmHistory.push({t: (Date.now()-startTime)/1000, wpm: calcWPM()});
     updateStats();
   }, 1000);
 }
 
-// ── Stats ──────────────────────────────────────────────────────────────────────
 function updateStats() {
   $('st-wpm').textContent = Math.round(calcWPM());
-  $('st-acc').textContent = Math.round(calcAcc());
+  $('st-acc').textContent  = Math.round(calcAcc());
 }
 
 function calcWPM() {
   if (!startTime) return 0;
-  const mins = (Date.now() - startTime) / 60000;
+  const mins = (Date.now()-startTime)/60000;
   if (!mins) return 0;
-  const correct = charEls.slice(0, inputIdx).filter(e => e.classList.contains('correct')).length;
-  return correct / 5 / mins;
+  const correct = charEls.slice(0,inputIdx).filter(e=>e.classList.contains('correct')).length;
+  return correct/5/mins;
 }
 
 function calcAcc() {
-  return totalKeys ? (totalKeys - errors) / totalKeys * 100 : 100;
+  return totalKeys ? (totalKeys-errors)/totalKeys*100 : 100;
 }
 
-// ── End test ───────────────────────────────────────────────────────────────────
+// ── End test ────────────────────────────────────────────────────────────────
 async function endTest() {
-  clearInterval(timerInterval); clearInterval(wpmSampleInterval);
+  clearInterval(timerInterval); clearInterval(wpmInterval);
   finished = true;
-  const elapsed = (Date.now() - startTime) / 1000;
+  const elapsed = (Date.now()-startTime)/1000;
   const wpm = Math.round(calcWPM());
   const acc = calcAcc().toFixed(1);
+  wpmHistory.push({t: elapsed, wpm});
 
-  // Push final sample
-  wpmHistory.push({ t: elapsed, wpm });
-
-  // Save score
-  const lang = mode === 'code' ? (subOption || 'go') : '';
-  const dur = mode === 'time' ? (timeSecs[subOption] || 30) : 0;
+  const lang = mode==='code' ? (subOption||'go') : '';
+  const dur  = mode==='time' ? (timeSecs[subOption]||30) : 0;
   await fetch('/api/score', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ wpm, accuracy: parseFloat(acc), mode, lang, duration_seconds: dur, at: new Date().toISOString() })
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({wpm, accuracy:parseFloat(acc), mode, lang, duration_seconds:dur, at:new Date().toISOString()})
   });
 
   const scores = await (await fetch('/api/scores')).json();
-  const filtered = (scores || []).filter(s => s.mode === mode && s.duration_seconds === dur && s.lang === lang);
-  const pb = filtered.length ? Math.max(...filtered.map(s => s.wpm)) : wpm;
+  const filtered = (scores||[]).filter(s=>s.mode===mode && s.duration_seconds===dur && s.lang===lang);
+  const pb = filtered.length ? Math.max(...filtered.map(s=>s.wpm)) : wpm;
 
-  // Hide typing, show results + graphs
   $('typing-area').style.display = 'none';
-  $('controls').style.display = 'none';
-  $('results').style.display = 'flex';
+  $('controls').style.display    = 'none';
+  $('results').style.display     = 'flex';
 
   $('r-wpm').childNodes[0].textContent = wpm;
-  $('r-acc').textContent = acc + '%';
-  $('r-time').textContent = elapsed.toFixed(1) + 's';
-  $('r-pb').textContent = pb + ' wpm';
-  $('pb-badge').style.display = wpm >= pb ? 'inline' : 'none';
+  $('r-acc').textContent  = acc+'%';
+  $('r-time').textContent = elapsed.toFixed(1)+'s';
+  $('r-pb').textContent   = pb+' wpm';
+  $('pb-badge').style.display = wpm>=pb ? 'inline' : 'none';
 
-  // WPM Chart
   renderWPMChart();
-
-  // Heatmap (only if there are mistakes)
   if (Object.keys(mistakeMap).length > 0) renderHeatmap();
 }
 
-// ── WPM Chart ──────────────────────────────────────────────────────────────────
+// ── WPM Chart (Chart.js) ────────────────────────────────────────────────────
 function renderWPMChart() {
   if (wpmHistory.length < 2) return;
   $('chart-wrap').style.display = 'block';
-
-  const labels = wpmHistory.map(p => p.t.toFixed(0) + 's');
-  const data   = wpmHistory.map(p => p.wpm);
-
   wpmChart = new Chart($('wpm-chart'), {
     type: 'line',
     data: {
-      labels,
-      datasets: [{
-        data,
-        borderColor: '#cba6f7',
-        backgroundColor: 'rgba(203,166,247,.1)',
-        borderWidth: 2,
-        pointRadius: 2,
-        pointBackgroundColor: '#cba6f7',
-        tension: .35,
-        fill: true,
+      labels: wpmHistory.map(p=>p.t.toFixed(0)+'s'),
+      datasets:[{
+        data: wpmHistory.map(p=>p.wpm),
+        borderColor:'#cba6f7', backgroundColor:'rgba(203,166,247,.1)',
+        borderWidth:2, pointRadius:2, pointBackgroundColor:'#cba6f7',
+        tension:.35, fill:true,
       }]
     },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: { label: ctx => ctx.parsed.y.toFixed(0) + ' wpm' }
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#585b70', font: { size: 10 } }, grid: { color: '#313244' } },
-        y: { ticks: { color: '#585b70', font: { size: 10 } }, grid: { color: '#313244' }, beginAtZero: true }
+    options:{
+      responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(0)+' wpm'}} },
+      scales:{
+        x:{ticks:{color:'#585b70',font:{size:10}}, grid:{color:'#313244'}},
+        y:{ticks:{color:'#585b70',font:{size:10}}, grid:{color:'#313244'}, beginAtZero:true}
       }
     }
   });
 }
 
-// ── Keyboard heatmap ───────────────────────────────────────────────────────────
+// ── Keyboard heatmap ────────────────────────────────────────────────────────
 const kbRows = [
   ['`','1','2','3','4','5','6','7','8','9','0','-','='],
   ['q','w','e','r','t','y','u','i','o','p','[',']','\\'],
   ['a','s','d','f','g','h','j','k','l',';',"'"],
   ['z','x','c','v','b','n','m',',','.','/'],
 ];
-const wideKeys = { '\\': 'wide-15', ' ': 'space' };
 
 function renderHeatmap() {
   $('heatmap-wrap').style.display = 'block';
   const kb = $('keyboard');
   kb.innerHTML = '';
-
   const maxCount = Math.max(...Object.values(mistakeMap), 1);
 
-  kbRows.forEach(row => {
+  const makeKey = (label, mapKey) => {
+    const el = document.createElement('div');
+    el.className = 'key' + (label==='\\' ? ' w15' : label==='enter' ? ' w2' : label==='tab' ? ' w15' : '');
+    el.textContent = label;
+    const count = mistakeMap[mapKey||label] || 0;
+    if (count > 0) {
+      const h = count/maxCount;
+      const r = Math.round(69  + (243-69)  * h);
+      const g = Math.round(71  + (139-71)  * h);
+      const b = Math.round(90  + (168-90)  * h);
+      el.style.background = `rgb(${r},${g},${b})`;
+      el.style.color = h>.5 ? '#1e1e2e' : '#cdd6f4';
+      el.style.borderColor = `rgb(${r},${g},${b})`;
+      el.title = `${label}: ${count} mistake${count>1?'s':''}`;
+    }
+    return el;
+  };
+
+  kbRows.forEach((row, ri) => {
     const rowEl = document.createElement('div');
     rowEl.className = 'kb-row';
-    row.forEach(k => {
-      const el = document.createElement('div');
-      el.className = 'key' + (wideKeys[k] ? ' ' + wideKeys[k] : '');
-      el.textContent = k;
-      const count = mistakeMap[k] || 0;
-      if (count > 0) {
-        const heat = count / maxCount;
-        // Lerp from neutral (#45475a) to hot red (#f38ba8)
-        const r = Math.round(69  + (243 - 69)  * heat);
-        const g = Math.round(71  + (139 - 71)  * heat);
-        const b = Math.round(90  + (168 - 90)  * heat);
-        el.style.background = `rgb(${r},${g},${b})`;
-        el.style.color = heat > .5 ? '#1e1e2e' : '#cdd6f4';
-        el.style.borderColor = `rgb(${r},${g},${b})`;
-        el.title = `${k}: ${count} mistake${count > 1 ? 's' : ''}`;
-      }
-      rowEl.appendChild(el);
-    });
-    // Space bar on last row
-    if (row === kbRows[kbRows.length - 1]) {
-      const sp = document.createElement('div');
-      sp.className = 'key space';
-      sp.textContent = 'space';
-      const count = mistakeMap[' '] || 0;
-      if (count > 0) {
-        const heat = count / maxCount;
-        const r = Math.round(69  + (243 - 69)  * heat);
-        const g = Math.round(71  + (139 - 71)  * heat);
-        const b = Math.round(90  + (168 - 90)  * heat);
-        sp.style.background = `rgb(${r},${g},${b})`;
-        sp.style.color = heat > .5 ? '#1e1e2e' : '#cdd6f4';
-        sp.title = `space: ${count} mistake${count > 1 ? 's' : ''}`;
-      }
-      rowEl.appendChild(sp);
-    }
+    if (ri===0) rowEl.appendChild(makeKey('tab','tab'));
+    row.forEach(k => rowEl.appendChild(makeKey(k)));
+    if (ri===0) rowEl.appendChild(makeKey('bksp', ''));
+    if (ri===2) rowEl.appendChild(makeKey('enter','enter'));
     kb.appendChild(rowEl);
   });
+  // Space row
+  const spRow = document.createElement('div');
+  spRow.className = 'kb-row';
+  const spEl = document.createElement('div');
+  spEl.className = 'key spc';
+  spEl.textContent = 'space';
+  const spCount = mistakeMap[' '] || 0;
+  if (spCount>0){
+    const h=spCount/maxCount;
+    const r=Math.round(69+(243-69)*h), g=Math.round(71+(139-71)*h), b=Math.round(90+(168-90)*h);
+    spEl.style.background=`rgb(${r},${g},${b})`;
+    spEl.style.color=h>.5?'#1e1e2e':'#cdd6f4';
+    spEl.title=`space: ${spCount} mistake${spCount>1?'s':''}`;
+  }
+  spRow.appendChild(spEl);
+  kb.appendChild(spRow);
 }
 
-// ── Wiring ─────────────────────────────────────────────────────────────────────
+// ── Button wiring ───────────────────────────────────────────────────────────
 $('mode-btns').querySelectorAll('.btn').forEach(btn => {
   btn.onclick = () => {
-    $('mode-btns').querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    $('mode-btns').querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     mode = btn.dataset.mode;
     subOption = '';
@@ -613,17 +563,14 @@ $('mode-btns').querySelectorAll('.btn').forEach(btn => {
 
 $('btn-again').onclick = loadTest;
 $('btn-menu').onclick = () => { reset(); $('typing-area').style.display=''; $('controls').style.display=''; loadTest(); };
-
 $('word-display').onclick = focusInput;
 document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.key === 'r') { e.preventDefault(); loadTest(); }
+  if (e.ctrlKey && e.key==='r') { e.preventDefault(); loadTest(); }
   if (!finished) focusInput();
 });
 
 function focusInput() { $('hidden-input').focus(); }
 
-// ── Snippet API endpoint (add to web.go via /api/snippet) ─────────────────────
-// Bootstrap
 buildSubBtns();
 loadTest();
 </script>

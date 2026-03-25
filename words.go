@@ -57,6 +57,8 @@ func randomQuote() Quote {
 	return quotes[rand.Intn(len(quotes))]
 }
 
+// wrapIntoLines splits prose text into display lines ≤ maxWidth, breaking at spaces.
+// Returns lines and the cumulative rune offsets into the original text.
 func wrapIntoLines(text string, maxWidth int) (lines []string, offsets []int) {
 	words := strings.Fields(text)
 	var cur strings.Builder
@@ -86,6 +88,26 @@ func wrapIntoLines(text string, maxWidth int) (lines []string, offsets []int) {
 	}
 	if cur.Len() > 0 {
 		flush()
+	}
+	return
+}
+
+// wrapCodeLines splits code text on actual newlines, preserving indentation.
+// Each line includes its trailing \n (shown as ↵) so the user must type Enter.
+// This is intentionally different from wrapIntoLines — code structure must be preserved.
+func wrapCodeLines(text string) (lines []string, offsets []int) {
+	// SplitAfter keeps the \n at the end of each segment.
+	// e.g. "func main() {\n\tfmt.Println()\n}" →
+	//   ["func main() {\n", "\tfmt.Println()\n", "}"]
+	segments := strings.SplitAfter(text, "\n")
+	offset := 0
+	for _, seg := range segments {
+		if seg == "" {
+			continue
+		}
+		lines = append(lines, seg)
+		offsets = append(offsets, offset)
+		offset += len([]rune(seg))
 	}
 	return
 }

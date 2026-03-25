@@ -37,6 +37,8 @@ func startWebServer() (string, error) {
 		json.NewEncoder(w).Encode(randomQuote())
 	})
 
+	// /api/snippet?lang=go returns code + per-rune token kinds from Chroma.
+	// The web UI uses the kinds array directly — no JS tokenizer needed.
 	mux.HandleFunc("/api/snippet", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		lang := r.URL.Query().Get("lang")
@@ -44,7 +46,12 @@ func startWebServer() (string, error) {
 			lang = "go"
 		}
 		s := randomSnippet(lang)
-		json.NewEncoder(w).Encode(map[string]string{"code": s.Code, "lang": s.Language})
+		kinds := BuildKindMap(s.Code, lang)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"code":  s.Code,
+			"lang":  s.Language,
+			"kinds": kinds,
+		})
 	})
 
 	mux.HandleFunc("/api/score", func(w http.ResponseWriter, r *http.Request) {

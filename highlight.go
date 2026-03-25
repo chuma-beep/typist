@@ -1,216 +1,117 @@
 package main
 
-import "strings"
+import (
+	"strings"
 
-// tokenKind classifies each character in a code snippet.
-type tokenKind int
-
-const (
-	tokenNormal  tokenKind = iota
-	tokenKeyword           // language keyword
-	tokenString            // string/char literal
-	tokenComment           // comment
-	tokenNumber            // numeric literal
-	tokenPunct             // operators, braces, punctuation
-	tokenBuiltin           // built-in types / functions
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/charmbracelet/lipgloss"
 )
 
-var keywords = map[string][]string{
-	"go": {
-		"break", "case", "chan", "const", "continue", "default", "defer",
-		"else", "fallthrough", "for", "func", "go", "goto", "if", "import",
-		"interface", "map", "package", "range", "return", "select", "struct",
-		"switch", "type", "var",
-	},
-	"go_builtin": {
-		"append", "cap", "close", "copy", "delete", "error", "false", "iota",
-		"len", "make", "new", "nil", "panic", "print", "println", "recover",
-		"string", "true", "bool", "byte", "int", "int8", "int16", "int32",
-		"int64", "uint", "uint8", "uint16", "uint32", "uint64", "float32",
-		"float64", "complex64", "complex128", "rune", "any",
-	},
-	"js": {
-		"async", "await", "break", "case", "catch", "class", "const",
-		"continue", "default", "delete", "do", "else", "export", "extends",
-		"false", "finally", "for", "function", "if", "import", "in",
-		"instanceof", "let", "new", "null", "of", "return", "static",
-		"super", "switch", "this", "throw", "true", "try", "typeof",
-		"undefined", "var", "void", "while", "yield",
-	},
-	"js_builtin": {
-		"Array", "Boolean", "console", "Date", "document", "Error",
-		"fetch", "JSON", "Map", "Math", "Number", "Object", "Promise",
-		"Set", "String", "setTimeout", "clearTimeout", "window",
-	},
-	"python": {
-		"and", "as", "assert", "async", "await", "break", "class",
-		"continue", "def", "del", "elif", "else", "except", "False",
-		"finally", "for", "from", "global", "if", "import", "in",
-		"is", "lambda", "None", "nonlocal", "not", "or", "pass",
-		"raise", "return", "True", "try", "while", "with", "yield",
-	},
-	"python_builtin": {
-		"dict", "enumerate", "filter", "float", "input", "int", "isinstance",
-		"len", "list", "map", "max", "min", "open", "print", "range",
-		"reversed", "set", "sorted", "str", "sum", "tuple", "type", "zip",
-	},
-	"rust": {
-		"as", "async", "await", "break", "const", "continue", "crate",
-		"dyn", "else", "enum", "extern", "false", "fn", "for", "if",
-		"impl", "in", "let", "loop", "match", "mod", "move", "mut",
-		"pub", "ref", "return", "self", "Self", "static", "struct",
-		"super", "trait", "true", "type", "union", "unsafe", "use",
-		"where", "while",
-	},
-	"rust_builtin": {
-		"bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128",
-		"isize", "Option", "panic", "println", "Result", "Some", "None",
-		"Ok", "Err", "String", "str", "u8", "u16", "u32", "u64", "u128",
-		"usize", "Vec", "Box", "HashMap", "HashSet",
-	},
+// StyleMap holds one lipgloss.Style per rune in the source text.
+// Index matches rune position in target, not byte position.
+type StyleMap []lipgloss.Style
+
+// chromaName maps our short lang keys to Chroma's language names.
+var chromaName = map[string]string{
+	"go":     "go",
+	"js":     "javascript",
+	"python": "python",
+	"rust":   "rust",
 }
 
-// Tokenize returns a slice of tokenKind, one per rune in text, for the given language.
-func Tokenize(text, lang string) []tokenKind {
+// BuildStyleMap tokenizes text with Chroma and returns a per-rune StyleMap.
+// Falls back to pendingStyle for everything if the lexer fails.
+func BuildStyleMap(text, lang string) StyleMap {
+	kinds := BuildKindMap(text, lang)
+	sm := make(StyleMap, len(kinds))
+	for i, k := range kinds {
+		sm[i] = kindToStyle(k)
+	}
+	return sm
+}
+
+// BuildKindMap returns a string kind ("keyword", "string", etc.) per rune.
+// Used by both the TUI (converted to StyleMap) and the web API (returned as JSON).
+func BuildKindMap(text, lang string) []string {
 	runes := []rune(text)
-	kinds := make([]tokenKind, len(runes))
-
-	kwSet := make(map[string]bool)
-	for _, kw := range keywords[lang] {
-		kwSet[kw] = true
-	}
-	biSet := make(map[string]bool)
-	for _, bi := range keywords[lang+"_builtin"] {
-		biSet[bi] = true
+	kinds := make([]string, len(runes))
+	for i := range kinds {
+		kinds[i] = "normal"
 	}
 
-	// Determine comment and string syntax per language
-	lineComment := "//"
-	blockOpen, blockClose := "/*", "*/"
-	stringDelims := `"'` + "`"
-	switch lang {
-	case "python":
-		lineComment = "#"
-		blockOpen, blockClose = `"""`, `"""`
-		stringDelims = `"'`
-	case "rust":
-		lineComment = "//"
-		blockOpen, blockClose = "/*", "*/"
+	clang, ok := chromaName[lang]
+	if !ok {
+		return kinds
 	}
 
-	i := 0
-	for i < len(runes) {
-		rest := string(runes[i:])
+	lexer := lexers.Get(clang)
+	if lexer == nil {
+		return kinds
+	}
+	lexer = chroma.Coalesce(lexer)
 
-		// Line comment
-		if strings.HasPrefix(rest, lineComment) {
-			end := i
-			for end < len(runes) && runes[end] != '\n' {
-				end++
-			}
-			for k := i; k < end; k++ {
-				kinds[k] = tokenComment
-			}
-			i = end
-			continue
-		}
-
-		// Block comment / Python docstring
-		if strings.HasPrefix(rest, blockOpen) {
-			end := strings.Index(rest[len(blockOpen):], blockClose)
-			var closePos int
-			if end == -1 {
-				closePos = len(runes)
-			} else {
-				closePos = i + len(blockOpen) + end + len(blockClose)
-			}
-			for k := i; k < closePos && k < len(runes); k++ {
-				kinds[k] = tokenComment
-			}
-			i = closePos
-			continue
-		}
-
-		// String literal
-		if strings.ContainsRune(stringDelims, runes[i]) {
-			delim := runes[i]
-			kinds[i] = tokenString
-			j := i + 1
-			for j < len(runes) {
-				if runes[j] == '\\' {
-					kinds[j] = tokenString
-					j++
-					if j < len(runes) {
-						kinds[j] = tokenString
-						j++
-					}
-					continue
-				}
-				kinds[j] = tokenString
-				if runes[j] == delim {
-					j++
-					break
-				}
-				j++
-			}
-			i = j
-			continue
-		}
-
-		// Number
-		if runes[i] >= '0' && runes[i] <= '9' {
-			j := i
-			for j < len(runes) && (runes[j] >= '0' && runes[j] <= '9' ||
-				runes[j] == '.' || runes[j] == 'x' || runes[j] == 'X' ||
-				runes[j] >= 'a' && runes[j] <= 'f' ||
-				runes[j] >= 'A' && runes[j] <= 'F' ||
-				runes[j] == '_') {
-				kinds[j] = tokenNumber
-				j++
-			}
-			i = j
-			continue
-		}
-
-		// Identifier or keyword
-		if isIdentStart(runes[i]) {
-			j := i
-			for j < len(runes) && isIdentPart(runes[j]) {
-				j++
-			}
-			word := string(runes[i:j])
-			kind := tokenNormal
-			if kwSet[word] {
-				kind = tokenKeyword
-			} else if biSet[word] {
-				kind = tokenBuiltin
-			}
-			for k := i; k < j; k++ {
-				kinds[k] = kind
-			}
-			i = j
-			continue
-		}
-
-		// Punctuation / operators
-		if isPunct(runes[i]) {
-			kinds[i] = tokenPunct
-		}
-
-		i++
+	iter, err := lexer.Tokenise(nil, text)
+	if err != nil {
+		return kinds
 	}
 
+	pos := 0
+	for tok := iter(); tok != chroma.EOF; tok = iter() {
+		kind := kindFromTokenType(tok.Type)
+		for range []rune(tok.Value) {
+			if pos < len(kinds) {
+				kinds[pos] = kind
+			}
+			pos++
+		}
+	}
 	return kinds
 }
 
-func isIdentStart(r rune) bool {
-	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_'
+// kindFromTokenType maps a Chroma TokenType to our simple kind string.
+// We use tok.Type.String() which returns "Keyword", "Keyword.Constant", etc.
+func kindFromTokenType(t chroma.TokenType) string {
+	s := t.String()
+	switch {
+	case strings.HasPrefix(s, "Keyword"):
+		return "keyword"
+	case strings.HasPrefix(s, "Name.Builtin"),
+		strings.HasPrefix(s, "Name.Function"),
+		strings.HasPrefix(s, "Name.Exception"),
+		strings.HasPrefix(s, "Name.Type"):
+		return "builtin"
+	case strings.HasPrefix(s, "Literal.String"),
+		strings.HasPrefix(s, "Literal.Char"):
+		return "string"
+	case strings.HasPrefix(s, "Comment"):
+		return "comment"
+	case strings.HasPrefix(s, "Literal.Number"):
+		return "number"
+	case strings.HasPrefix(s, "Operator"),
+		strings.HasPrefix(s, "Punctuation"):
+		return "punct"
+	default:
+		return "normal"
+	}
 }
 
-func isIdentPart(r rune) bool {
-	return isIdentStart(r) || (r >= '0' && r <= '9')
-}
-
-func isPunct(r rune) bool {
-	return strings.ContainsRune("{}[]().,;:=<>!&|^~%+-*/\\@#?", r)
+// kindToStyle maps a kind string to the corresponding lipgloss style.
+func kindToStyle(kind string) lipgloss.Style {
+	switch kind {
+	case "keyword":
+		return hlKeyword
+	case "builtin":
+		return hlBuiltin
+	case "string":
+		return hlString
+	case "comment":
+		return hlComment
+	case "number":
+		return hlNumber
+	case "punct":
+		return hlPunct
+	default:
+		return pendingStyle
+	}
 }
