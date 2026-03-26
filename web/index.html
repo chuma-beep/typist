@@ -192,6 +192,118 @@ footer a:hover { color: var(--mauve); }
 
 /* ── Hidden input trick ──────────────────────────────────────────────────── */
 #capture { position: fixed; left: -9999px; opacity: 0; }
+/* ── About panel ─────────────────────────────────────────────────────────── */
+.about-overlay {
+  position: fixed; inset: 0;
+  background: rgba(17,17,27,.7);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.about-overlay.open { opacity: 1; pointer-events: all; }
+
+.about-panel {
+  background: var(--mantle);
+  border: 1px solid var(--s0);
+  border-radius: 12px;
+  padding: 2.5rem 3rem;
+  width: min(640px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  font-family: var(--font-ui);
+  transform: translateY(12px);
+  transition: transform .2s;
+  position: relative;
+}
+.about-overlay.open .about-panel { transform: translateY(0); }
+
+.about-close {
+  position: absolute; top: 1rem; right: 1.25rem;
+  background: none; border: none; color: var(--s2);
+  font-size: 1.1rem; cursor: pointer; line-height: 1;
+  transition: color .15s;
+}
+.about-close:hover { color: var(--tx); }
+
+.about-logo {
+  font-family: var(--font-mono); font-size: 1.8rem;
+  font-weight: 700; color: var(--mauve); letter-spacing: .12em;
+  margin-bottom: .3rem;
+}
+.about-tagline {
+  color: var(--s2); font-size: .85rem; margin-bottom: 2rem;
+}
+
+.about-section { margin-bottom: 1.75rem; }
+.about-section h2 {
+  font-size: .7rem; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--s2);
+  margin-bottom: .85rem;
+}
+
+/* Feature grid */
+.feature-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+.feature-item {
+  display: flex; align-items: flex-start; gap: .6rem;
+  padding: .6rem .75rem;
+  background: var(--s0); border-radius: 6px;
+  font-size: .83rem;
+}
+.feature-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  margin-top: .35rem; flex-shrink: 0;
+}
+.feature-item p { color: var(--tx); line-height: 1.4; }
+.feature-item span { color: var(--s2); font-size: .75rem; display: block; }
+
+/* Mode table */
+.mode-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+.mode-table th {
+  text-align: left; color: var(--s2); font-weight: 500;
+  padding: .35rem .5rem; border-bottom: 1px solid var(--s0);
+}
+.mode-table td { padding: .4rem .5rem; color: var(--tx); vertical-align: top; }
+.mode-table tr:not(:last-child) td { border-bottom: 1px solid var(--s0); }
+.mode-name { font-family: var(--font-mono); color: var(--mauve); font-size: .8rem; }
+.mode-desc { color: var(--sub); }
+
+/* Keybinds */
+.kb-grid { display: grid; grid-template-columns: auto 1fr; gap: .3rem .75rem; font-size: .82rem; }
+.kb-key {
+  font-family: var(--font-mono); font-size: .72rem;
+  background: var(--s0); color: var(--mauve);
+  padding: .1rem .45rem; border-radius: 4px;
+  border: 1px solid var(--s1);
+  white-space: nowrap; align-self: center;
+}
+.kb-desc { color: var(--sub); align-self: center; }
+
+/* Stack chips */
+.chip-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip {
+  font-family: var(--font-mono); font-size: .72rem;
+  background: var(--s0); color: var(--sky);
+  padding: .2rem .6rem; border-radius: 20px;
+  border: 1px solid var(--s1);
+}
+.chip a { color: inherit; text-decoration: none; }
+.chip a:hover { color: var(--mauve); }
+
+/* About footer */
+.about-footer {
+  margin-top: 2rem; padding-top: 1rem;
+  border-top: 1px solid var(--s0);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .75rem; color: var(--s2);
+}
+.about-footer a { color: var(--s2); text-decoration: none; }
+.about-footer a:hover { color: var(--mauve); }
+
 </style>
 </head>
 <body>
@@ -203,6 +315,129 @@ footer a:hover { color: var(--mauve); }
     <a href="https://github.com/chuma-beep/typist" target="_blank" class="github-link">github ↗</a>
   </div>
 </nav>
+
+<!-- ── About panel ─────────────────────────────────────────────────────── -->
+<div class="about-overlay" id="about-overlay">
+  <div class="about-panel" id="about-panel">
+    <button class="about-close" id="about-close" aria-label="close">✕</button>
+
+    <div class="about-logo">typist</div>
+    <div class="about-tagline">an offline typing test for developers — no account, no paywall, no internet required</div>
+
+    <!-- Features -->
+    <div class="about-section">
+      <h2>what it does</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <div class="feature-dot" style="background:var(--mauve)"></div>
+          <div><p>Four test modes</p><span>words, timed, quotes, code</span></div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:var(--green)"></div>
+          <div><p>Real code snippets</p><span>Go, JavaScript, Python, Rust</span></div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:var(--sky)"></div>
+          <div><p>Syntax highlighting</p><span>via highlight.js — 300+ languages</span></div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:var(--yellow)"></div>
+          <div><p>WPM graph</p><span>Chart.js line chart after each test</span></div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:var(--red)"></div>
+          <div><p>Mistake heatmap</p><span>keyboard colored by error frequency</span></div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:var(--peach)"></div>
+          <div><p>Personal bests</p><span>saved locally, per mode and language</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modes -->
+    <div class="about-section">
+      <h2>modes</h2>
+      <table class="mode-table">
+        <thead>
+          <tr><th>mode</th><th>description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mode-name">words</span></td>
+            <td class="mode-desc">30 common English words. The baseline — pure typing speed with no distractions.</td>
+          </tr>
+          <tr>
+            <td><span class="mode-name">time</span></td>
+            <td class="mode-desc">Countdown timer (15s, 30s, 60s, 120s, or custom up to 1 hour). Timer starts on first keypress.</td>
+          </tr>
+          <tr>
+            <td><span class="mode-name">quote</span></td>
+            <td class="mode-desc">A random literary excerpt. Punctuation, apostrophes, and sentence structure included.</td>
+          </tr>
+          <tr>
+            <td><span class="mode-name">code</span></td>
+            <td class="mode-desc">Real, idiomatic code snippets. Tab and Enter are live keystrokes. Syntax is highlighted as you type.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Keybindings -->
+    <div class="about-section">
+      <h2>keyboard shortcuts</h2>
+      <div class="kb-grid">
+        <span class="kb-key">ctrl+r</span><span class="kb-desc">restart with new text</span>
+        <span class="kb-key">tab</span><span class="kb-desc">type a tab character (code mode)</span>
+        <span class="kb-key">enter</span><span class="kb-desc">type a newline (code mode)</span>
+        <span class="kb-key">esc</span><span class="kb-desc">start a new test</span>
+      </div>
+    </div>
+
+    <!-- Philosophy -->
+    <div class="about-section">
+      <h2>why this exists</h2>
+      <p style="color:var(--sub);font-size:.85rem;line-height:1.7">
+        Most typing tests are designed for general users — random words, no code, accounts required for history.
+        Typist is built for developers who want to practice the patterns they actually type every day:
+        function signatures, conditionals, closures, match arms.
+        It runs offline, stores scores locally, and ships as a single binary with a built-in web UI.
+        No telemetry. No ads. No paywall.
+      </p>
+    </div>
+
+    <!-- Stack -->
+    <div class="about-section">
+      <h2>built with</h2>
+      <div class="chip-row">
+        <span class="chip"><a href="https://go.dev" target="_blank">Go</a></span>
+        <span class="chip"><a href="https://github.com/charmbracelet/bubbletea" target="_blank">Bubble Tea</a></span>
+        <span class="chip"><a href="https://github.com/charmbracelet/lipgloss" target="_blank">Lipgloss</a></span>
+        <span class="chip"><a href="https://github.com/alecthomas/chroma" target="_blank">Chroma v2</a></span>
+        <span class="chip"><a href="https://www.chartjs.org" target="_blank">Chart.js</a></span>
+        <span class="chip"><a href="https://highlightjs.org" target="_blank">highlight.js</a></span>
+        <span class="chip"><a href="https://catppuccin.com" target="_blank">Catppuccin</a></span>
+      </div>
+    </div>
+
+    <!-- TUI note -->
+    <div class="about-section">
+      <h2>terminal ui</h2>
+      <p style="color:var(--sub);font-size:.85rem;line-height:1.7">
+        This web version and the terminal UI share the same codebase and score storage.
+        The TUI adds blind mode, session history, JSON/CSV export, theme switching (Mocha ↔ Latte),
+        and focus mode. Install it with:
+      </p>
+      <pre style="margin-top:.75rem;background:var(--s0);padding:.75rem 1rem;border-radius:6px;font-family:var(--font-mono);font-size:.78rem;color:var(--green);overflow-x:auto">go install github.com/chuma-beep/typist@latest</pre>
+    </div>
+
+    <div class="about-footer">
+      <span>MIT license · <a href="https://github.com/chuma-beep/typist" target="_blank">github.com/chuma-beep/typist</a></span>
+      <span>built by <a href="https://github.com/chuma-beep" target="_blank">chuma-beep</a></span>
+    </div>
+  </div>
+</div>
+
 
 <main>
 
@@ -958,6 +1193,27 @@ function focus(){ document.getElementById('capture').focus(); }
 
 buildSubRow();
 newTest();
+
+// ── About panel ─────────────────────────────────────────────────────────────
+const overlay = document.getElementById('about-overlay');
+const panel   = document.getElementById('about-panel');
+
+function openAbout() {
+  overlay.classList.add('open');
+  document.getElementById('capture').blur();
+}
+function closeAbout() {
+  overlay.classList.remove('open');
+  if (!finished) focus();
+}
+
+document.getElementById('nav-tui').onclick = e => { e.preventDefault(); openAbout(); };
+document.getElementById('about-close').onclick = closeAbout;
+overlay.addEventListener('click', e => { if (e.target === overlay) closeAbout(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && overlay.classList.contains('open')) { closeAbout(); }
+});
+
 </script>
 </body>
 </html>
