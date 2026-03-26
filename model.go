@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -278,6 +280,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// toggleTheme switches between mocha and latte and rebuilds any active hlMap.
+func (m *Model) toggleTheme() {
+	m.darkTheme = !m.darkTheme
+	if m.darkTheme {
+		applyTheme(mocha)
+	} else {
+		applyTheme(latte)
+	}
+	if m.mode == modeCode && len(m.target) > 0 {
+		m.hlMap = BuildStyleMap(string(m.target), langKeys[m.langIdx])
+	}
+}
+
+// goToMenu resets to the main menu preserving user preferences.
+func (m Model) goToMenu() Model {
+	next := NewModel()
+	next.width, next.height = m.width, m.height
+	next.mode, next.timeLimitIdx, next.langIdx = m.mode, m.timeLimitIdx, m.langIdx
+	next.customTimeSecs = m.customTimeSecs
+	next.focusMode, next.darkTheme = m.focusMode, m.darkTheme
+	if !next.darkTheme {
+		applyTheme(latte)
+	}
+	return next
+}
+
 // ── Menu ──────────────────────────────────────────────────────────────────────
 
 func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -305,13 +333,6 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.menuCol = (m.menuCol + 1) % subCount
 			m.applySubRow()
 		}
-	case tea.KeyCtrlT:
-		m.darkTheme = !m.darkTheme
-		if m.darkTheme {
-			applyTheme(mocha)
-		} else {
-			applyTheme(latte)
-		}
 	case tea.KeyUp:
 		if m.menuRow == 1 {
 			m.menuRow = 0
@@ -326,6 +347,9 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.menuCol = m.langIdx
 			}
 		}
+	case tea.KeyCtrlT:
+		m.toggleTheme()
+		return m, nil
 	case tea.KeyEnter:
 		// If time mode + custom slot selected, go to time input screen
 		if m.mode == modeTime && m.menuRow == 1 && m.timeLimitIdx == len(timeLimits) {
@@ -374,6 +398,9 @@ func (m Model) updateTyping(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC:
 		return m, tea.Quit
+	case tea.KeyCtrlM:
+		next := m.goToMenu()
+		return next, nil
 	case tea.KeyEsc:
 		m.prevState = stateTyping
 		m.state = stateConfirmQuit
@@ -389,16 +416,7 @@ func (m Model) updateTyping(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.focusMode = !m.focusMode
 		return m, nil
 	case tea.KeyCtrlT:
-		m.darkTheme = !m.darkTheme
-		if m.darkTheme {
-			applyTheme(mocha)
-		} else {
-			applyTheme(latte)
-		}
-		// Rebuild hlMap with new styles
-		if m.mode == modeCode && len(m.target) > 0 {
-			m.hlMap = BuildStyleMap(string(m.target), langKeys[m.langIdx])
-		}
+		m.toggleTheme()
 		return m, nil
 	}
 	return m.handleTypingKey(msg)
@@ -474,12 +492,16 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC:
 		return m, tea.Quit
+	case tea.KeyCtrlM:
+		next := m.goToMenu()
+		return next, nil
+	case tea.KeyCtrlT:
+		m.toggleTheme()
+		return m, nil
 	case tea.KeyEsc:
 		m.prevState = stateResults
 		m.state = stateConfirmQuit
 		return m, nil
-	case tea.KeyEnter:
-		return m.restart()
 	case tea.KeyRunes:
 		switch string(msg.Runes) {
 		case "r", "R":
@@ -499,13 +521,6 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "c", "C":
 			return m, exportCSVCmd()
 		}
-	case tea.KeyCtrlT:
-		m.darkTheme = !m.darkTheme
-		if m.darkTheme {
-			applyTheme(mocha)
-		} else {
-			applyTheme(latte)
-		}
 	}
 	return m, nil
 }
@@ -522,6 +537,12 @@ func (m Model) updateConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC:
 		return m, tea.Quit
+	case tea.KeyCtrlM:
+		next := m.goToMenu()
+		return next, nil
+	case tea.KeyCtrlT:
+		m.toggleTheme()
+		return m, nil
 	case tea.KeyRunes:
 		switch string(msg.Runes) {
 		case "y", "Y":
@@ -530,7 +551,7 @@ func (m Model) updateConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = m.prevState
 			return m, nil
 		}
-	case tea.KeyEsc, tea.KeyEnter:
+	case tea.KeyEsc:
 		// Esc or Enter on the confirm screen = cancel (safe default)
 		m.state = m.prevState
 		return m, nil
@@ -555,7 +576,7 @@ func (m Model) updateTimeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.customTimeStr = m.customTimeStr[:len(m.customTimeStr)-1]
 		}
 		return m, nil
-	case tea.KeyEnter:
+	case tea.KeyCtrlM:
 		if m.customTimeStr == "" {
 			m.state = stateMenu
 			return m, nil
@@ -596,6 +617,12 @@ func (m Model) updateHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC:
 		return m, tea.Quit
+	case tea.KeyCtrlM:
+		next := m.goToMenu()
+		return next, nil
+	case tea.KeyCtrlT:
+		m.toggleTheme()
+		return m, nil
 	case tea.KeyEsc:
 		m.state = stateMenu
 		return m, nil
@@ -652,6 +679,71 @@ func (m Model) calcAccuracy() float64 {
 		return 100
 	}
 	return float64(m.totalKeys-m.errors) / float64(m.totalKeys) * 100
+}
+
+// correctChars returns the number of correctly typed characters.
+func (m Model) correctChars() int {
+	correct := 0
+	for i, r := range m.input {
+		if i < len(m.target) && r == m.target[i] {
+			correct++
+		}
+	}
+	return correct
+}
+
+// wpmStdDev returns the standard deviation of wpmSamples — a measure of
+// consistency. Low = steady pace; high = lots of speed swings.
+func (m Model) wpmStdDev() float64 {
+	if len(m.wpmSamples) < 2 {
+		return 0
+	}
+	mean := 0.0
+	for _, v := range m.wpmSamples {
+		mean += v
+	}
+	mean /= float64(len(m.wpmSamples))
+
+	variance := 0.0
+	for _, v := range m.wpmSamples {
+		d := v - mean
+		variance += d * d
+	}
+	variance /= float64(len(m.wpmSamples))
+	return math.Sqrt(variance)
+}
+
+// deltaFromLast returns the WPM difference vs the most recent previous
+// session with the same mode/lang/duration. Returns 0, false if no prior.
+func (m Model) deltaFromLast(dur int) (float64, bool) {
+	sessions := recentSessions(50)
+	for _, s := range sessions {
+		if s.Mode == m.modeKey() && s.Lang == m.langKey() && s.Duration == dur {
+			// recentSessions sorts newest-first; the current session was just
+			// saved, so skip it and return the one after.
+			// We compare by time — skip any session within 5s of now.
+			if s.At.After(m.startTime) || m.startTime.Sub(s.At).Seconds() < 5 {
+				continue
+			}
+			return m.finalWPM - s.WPM, true
+		}
+	}
+	return 0, false
+}
+
+// topMistakes returns the top n most-missed characters, sorted by count desc.
+func (m Model) topMistakes(n int) []mistakeEntry {
+	entries := make([]mistakeEntry, 0, len(m.mistakeMap))
+	for ch, count := range m.mistakeMap {
+		entries = append(entries, mistakeEntry{ch, count})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].count > entries[j].count
+	})
+	if len(entries) > n {
+		return entries[:n]
+	}
+	return entries
 }
 
 // ── Views ─────────────────────────────────────────────────────────────────────
@@ -879,7 +971,7 @@ func (m Model) viewTyping() string {
 	parts = append(parts, progress, textBlock, "")
 
 	if !m.focusMode {
-		parts = append(parts, hintStyle.Render("tab  enter  ctrl+r  ctrl+b  ctrl+f  ctrl+t  esc"))
+		parts = append(parts, hintStyle.Render("ctrl+r restart  ctrl+m menu  ctrl+b blind  ctrl+f focus  ctrl+t theme  esc quit"))
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, parts...)
@@ -899,43 +991,144 @@ func (m Model) pendingWithHL(pos int, display string) string {
 func (m Model) viewResults() string {
 	dur := m.activeDuration()
 	pb := personalBest(m.modeKey(), m.langKey(), dur)
-
-	// ── Stat blocks: big number + small label below ───────────────────────
-	// Use a large bold style for the numbers to give visual weight.
 	numStyle := lipgloss.NewStyle().Bold(true)
 
-	wpmNum := numStyle.Foreground(activeTheme.wpm).Render(fmt.Sprintf("%.0f", m.finalWPM))
-	accNum := numStyle.Foreground(activeTheme.acc).Render(fmt.Sprintf("%.1f%%", m.finalAcc))
-	timeNum := numStyle.Foreground(activeTheme.timer).Render(fmt.Sprintf("%.1fs", m.elapsed.Seconds()))
-	pbNum := numStyle.Foreground(activeTheme.subtle).Render(fmt.Sprintf("%.0f", pb))
-
-	colW := 12
-
-	pbBadge := ""
-	if m.isPB {
-		pbBadge = pbStyle.Width(colW - 2).Render(" new best! ")
+	// ── Primary stat blocks ─────────────────────────────────────────────
+	// Keep badges off the column width — ANSI codes confuse lipgloss Width().
+	// Render the four numbers in fixed-width columns, then badges on a separate
+	// line so nothing gets pushed out of alignment.
+	colW := 10
+	mkCol := func(val, label string) string {
+		return lipgloss.NewStyle().Width(colW).Render(
+			lipgloss.JoinVertical(lipgloss.Left, val, subtleStyle.Render(label)),
+		)
 	}
-
-	wpmCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, wpmNum, pbBadge, subtleStyle.Render("wpm")))
-	accCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, accNum, subtleStyle.Render("acc")))
-	timeCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, timeNum, subtleStyle.Render("time")))
-	pbCol := lipgloss.NewStyle().Width(colW).Render(
-		lipgloss.JoinVertical(lipgloss.Left, pbNum, subtleStyle.Render("best")))
-
+	wpmCol := mkCol(numStyle.Foreground(activeTheme.wpm).Render(fmt.Sprintf("%.0f", m.finalWPM)), "wpm")
+	accCol := mkCol(numStyle.Foreground(activeTheme.acc).Render(fmt.Sprintf("%.1f%%", m.finalAcc)), "acc")
+	timeCol := mkCol(numStyle.Foreground(activeTheme.timer).Render(fmt.Sprintf("%.1fs", m.elapsed.Seconds())), "time")
+	pbCol := mkCol(numStyle.Foreground(activeTheme.subtle).Render(fmt.Sprintf("%.0f", pb)), "best")
 	statsRow := lipgloss.JoinHorizontal(lipgloss.Bottom, wpmCol, accCol, timeCol, pbCol)
 
+	// Badges row: "new best!" and delta, on their own line, no width constraints
+	var badgeParts []string
+	if m.isPB {
+		badgeParts = append(badgeParts, pbStyle.Render(" new best! "))
+	}
+	if delta, ok := m.deltaFromLast(dur); ok {
+		sign := "+"
+		col := activeTheme.green
+		if delta < 0 {
+			sign = ""
+			col = activeTheme.red
+		}
+		badgeParts = append(badgeParts,
+			lipgloss.NewStyle().Foreground(col).Bold(true).
+				Render(fmt.Sprintf("%s%.0f from last", sign, delta)))
+	}
+	badgeRow := ""
+	if len(badgeParts) > 0 {
+		badgeRow = strings.Join(badgeParts, "  ")
+	}
+
 	// ── Divider ───────────────────────────────────────────────────────────
-	divW := colW * 4
-	div := subtleStyle.Render(strings.Repeat("─", divW))
+	divW := 48
+	div := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", divW))
 
-	// ── Vertical bar chart ────────────────────────────────────────────────
+	// ── Secondary metrics row ─────────────────────────────────────────────
+	correct := m.correctChars()
+	incorrect := m.errors
+	total := m.totalKeys
+	stddev := m.wpmStdDev()
+
+	labelS := lipgloss.NewStyle().Foreground(activeTheme.surface2)
+	valS := lipgloss.NewStyle().Foreground(activeTheme.subtext1).Bold(true)
+
+	// char counts
+	charBlock := lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			valS.Foreground(activeTheme.correct).Render(fmt.Sprintf("%d", correct)),
+			labelS.Render("/"),
+			valS.Foreground(activeTheme.wrong).Render(fmt.Sprintf("%d", incorrect)),
+			labelS.Render("/"),
+			valS.Render(fmt.Sprintf("%d", total)),
+		),
+		labelS.Render("correct/errors/total"),
+	)
+
+	// consistency
+	var consLabel string
+	switch {
+	case stddev < 5:
+		consLabel = lipgloss.NewStyle().Foreground(activeTheme.green).Render("very consistent")
+	case stddev < 12:
+		consLabel = lipgloss.NewStyle().Foreground(activeTheme.yellow).Render("consistent")
+	case stddev < 20:
+		consLabel = lipgloss.NewStyle().Foreground(activeTheme.peach).Render("variable")
+	default:
+		consLabel = lipgloss.NewStyle().Foreground(activeTheme.red).Render("inconsistent")
+	}
+	consBlock := lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			valS.Render(fmt.Sprintf("±%.1f", stddev)),
+			labelS.Render(" wpm  "),
+			consLabel,
+		),
+		labelS.Render("consistency (std dev)"),
+	)
+
+	// error rate
+	errRate := 0.0
+	if total > 0 {
+		errRate = float64(incorrect) / float64(total) * 100
+	}
+	errBlock := lipgloss.JoinVertical(lipgloss.Left,
+		valS.Foreground(activeTheme.wrong).Render(fmt.Sprintf("%.1f%%", errRate)),
+		labelS.Render("error rate"),
+	)
+
+	spacer := strings.Repeat(" ", 4)
+	metricsRow := lipgloss.JoinHorizontal(lipgloss.Top,
+		charBlock, spacer, consBlock, spacer, errBlock,
+	)
+
+	// ── Top mistakes detail ───────────────────────────────────────────────
+	var mistakesLine string
+	if top := m.topMistakes(8); len(top) > 0 {
+		var sb strings.Builder
+		sb.WriteString(labelS.Render("missed:  "))
+		for _, e := range top {
+			label := string(e.ch)
+			switch e.ch {
+			case ' ':
+				label = "spc"
+			case '\t':
+				label = "tab"
+			case '\n':
+				label = "ret"
+			}
+			intensity := float64(e.count) / float64(top[0].count)
+			var col lipgloss.Color
+			switch {
+			case intensity >= 0.75:
+				col = activeTheme.red
+			case intensity >= 0.4:
+				col = activeTheme.peach
+			default:
+				col = activeTheme.surface2
+			}
+			sb.WriteString(lipgloss.NewStyle().
+				Foreground(activeTheme.base).
+				Background(col).
+				Padding(0, 1).
+				Render(label))
+			sb.WriteString(lipgloss.NewStyle().Foreground(activeTheme.surface2).
+				Render(fmt.Sprintf("×%d ", e.count)))
+		}
+		mistakesLine = sb.String()
+	}
+
+	// ── Bar chart ─────────────────────────────────────────────────────────
 	chartRows := m.renderBarChart(divW)
-
-	// ── Keyboard heatmap ──────────────────────────────────────────────────
-	kbRows := m.renderKeyboard()
 
 	// ── Actions ───────────────────────────────────────────────────────────
 	sep := hintStyle.Render("  ·  ")
@@ -950,13 +1143,22 @@ func (m Model) viewResults() string {
 
 	var exportLine string
 	if m.exportMsg != "" {
-		exportLine = "" + m.exportMsg
+		exportLine = "\n" + m.exportMsg
 	}
 
-	parts := []string{"", statsRow, "", div, ""}
+	parts := []string{"", statsRow}
+	if badgeRow != "" {
+		parts = append(parts, badgeRow)
+	}
+	parts = append(parts, "", div, "", metricsRow)
+	if mistakesLine != "" {
+		parts = append(parts, "", mistakesLine)
+	}
+	parts = append(parts, "", div, "")
 	parts = append(parts, chartRows...)
+	kbRows := m.renderKeyboard()
 	if len(kbRows) > 0 {
-		parts = append(parts, "", hintStyle.Render("mistakes"))
+		parts = append(parts, "", labelS.Render("keyboard"))
 		parts = append(parts, kbRows...)
 	}
 	parts = append(parts, "", actions)
