@@ -305,6 +305,13 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.menuCol = (m.menuCol + 1) % subCount
 			m.applySubRow()
 		}
+	case tea.KeyCtrlT:
+		m.darkTheme = !m.darkTheme
+		if m.darkTheme {
+			applyTheme(mocha)
+		} else {
+			applyTheme(latte)
+	    }	
 	case tea.KeyUp:
 		if m.menuRow == 1 {
 			m.menuRow = 0
@@ -492,6 +499,13 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "c", "C":
 			return m, exportCSVCmd()
 		}
+     case tea.KeyCtrlT:
+	 	m.darkTheme = !m.darkTheme
+		if m.darkTheme {
+			applyTheme(mocha)
+		} else {
+			applyTheme(latte)
+        }		
 	}
 	return m, nil
 }
