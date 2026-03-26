@@ -230,25 +230,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state != stateTyping {
 			break
 		}
-		// In time mode: always count down regardless of whether typing has started.
-		// This prevents the timer freezing if the first tick fires before any keypress.
 		if m.mode == modeTime {
+			// Keep ticking so the timer is ready the moment typing starts.
+			// Only decrement after the first keypress.
 			if m.started {
 				m.wpmSamples = append(m.wpmSamples, m.calcWPM())
 				m.lastSample = time.Time(msg)
-			}
-			m.timeLeft--
-			if m.timeLeft <= 0 {
-				if !m.started {
-					// Timer expired before any typing — just go to results with zero stats
-					m.started = true
-					m.startTime = time.Now().Add(-time.Duration(m.activeDuration()) * time.Second)
+				m.timeLeft--
+				if m.timeLeft <= 0 {
+					return m.finishTest(), nil
 				}
-				return m.finishTest(), nil
 			}
 			return m, tickCmd()
 		}
-		// Non-time modes: only sample WPM once typing has started
+		// Non-time modes: sample WPM each second after typing starts
 		if m.started {
 			m.wpmSamples = append(m.wpmSamples, m.calcWPM())
 			m.lastSample = time.Time(msg)
