@@ -1,5 +1,3 @@
----
-
 <div align="center">
 
 <!-- Animated Header -->
@@ -311,5 +309,3 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more informa
 Made by [chuma-beep](https://github.com/chuma-beep)
 
 </div>
-
----
