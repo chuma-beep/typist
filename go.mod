@@ -1,4 +1,4 @@
-module typist
+module github.com/chuma-beep/typist
 
 go 1.25.5
 
