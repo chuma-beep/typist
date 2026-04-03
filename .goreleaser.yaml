@@ -1,0 +1,98 @@
+# .goreleaser.yaml for typist
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - main: .
+    binary: typist
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+
+archives:
+  - format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: chuma-beep
+    name: typist
+  draft: false
+  prerelease: auto
+  footer: |
+    ## Installation
+    
+    **Linux/macOS:**
+    ```bash
+    # Extract and move to PATH
+    tar -xzf typist_{{.Version}}_Linux_x86_64.tar.gz
+    sudo mv typist /usr/local/bin/
+    ```
+    
+    **Windows:**
+    ```powershell
+    # Extract zip and add to PATH
+    ```
+    
+    **Or install via Go:**
+    ```bash
+    go install github.com/chuma-beep/typist@{{.Tag}}
+    ```
+    
+    ---
+    
+    **Full Changelog**: https://github.com/chuma-beep/typist/compare/{{.PreviousTag}}...{{.Tag}}

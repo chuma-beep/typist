@@ -7,7 +7,21 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var (
+    version = "dev"
+    commit  = "none"
+    date    = "unknown"
+    builtBy = "unknown"
+)
+
 func main() {
+    //version flag
+    if len(os.Args) > 1 && os.Args[1] == "--version" {
+        fmt.Printf("typist %s\ncommit: %s\nbuilt at: %s\nbuilt by: %s\n", 
+            version, commit, date, builtBy)
+        os.Exit(0)
+    }
+
 	for _, arg := range os.Args[1:] {
 		if arg == "--web" || arg == "-web" {
 			addr, err := startWebServer()
