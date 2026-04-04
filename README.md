@@ -5,7 +5,7 @@
 
 <!-- Tagline -->
 <p align="center">
-  <b>A fast, offline typing test for developers</b><br>
+  <b>A fast, offline typing test</b><br>
   <sub>No account. No paywall. No internet required.</sub>
 </p>
 
