@@ -253,8 +253,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.started {
 			m.wpmSamples = append(m.wpmSamples, m.calcWPM())
 			m.lastSample = time.Time(msg)
-			return m, tickCmd()
-		}
+		}	
+		return m, tickCmd()
 
 	case exportMsg:
 		if msg.err != nil {
