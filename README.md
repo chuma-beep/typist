@@ -33,7 +33,6 @@
 
 </div>
 
----
 
 <!-- Table of Contents -->
 <details open>
