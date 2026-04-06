@@ -285,6 +285,5 @@ typist/
 
 **[Back to Top](#typist)**
 
-Made by [chuma-beep](https://github.com/chuma-beep)
 
 </div>
