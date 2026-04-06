@@ -21,22 +21,18 @@ No account. No paywall. No internet required.
 ║       No account. No paywall. No internet required.              ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
+<img src="https://img.shields.io/github/stars/chuma-beep/typist?style=flat-square&#x26;color=yellow&#x26;logo=github" alt="Stars">
+<img src="https://img.shields.io/github/forks/chuma-beep/typist?style=flat-square&#x26;color=blue&#x26;logo=github" alt="Forks">
+<img src="https://img.shields.io/github/issues/chuma-beep/typist?style=flat-square&#x26;color=red&#x26;logo=github" alt="Issues">
+<img src="https://img.shields.io/github/license/chuma-beep/typist?style=flat-square&#x26;color=green&#x26;logo=open-source-initiative" alt="License">
+<img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&#x26;logo=go&#x26;logoColor=white" alt="Go">
 
-[![Stars](https://img.shields.io/github/stars/chuma-beep/typist?style=flat-square&color=yellow&logo=github)](https://github.com/chuma-beep/typist/stargazers)
-[![Forks](https://img.shields.io/github/forks/chuma-beep/typist?style=flat-square&color=blue&logo=github)](https://github.com/chuma-beep/typist/network/members)
-[![Issues](https://img.shields.io/github/issues/chuma-beep/typist?style=flat-square&color=red&logo=github)](https://github.com/chuma-beep/typist/issues)
-[![License](https://img.shields.io/github/license/chuma-beep/typist?style=flat-square&color=green&logo=open-source-initiative)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
 
-```ascii
 ┌─────────────────────────────────────────────────────────────────┐
 │ $ typist          # Terminal UI                                 │
 │ $ typist --web    # Web UI (auto opens browser)                 │
 │ $ typist --help   # Show all options                            │
 └─────────────────────────────────────────────────────────────────┘
-```
-
-</div>
 
 ---
 
