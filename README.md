@@ -53,7 +53,6 @@
 - [Blind Mode](#blind-mode)
 - [Scores & Export](#scores--export)
 - [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
 - [Roadmap](#roadmap)
 - [License](#license)
 
@@ -72,8 +71,8 @@
 │ Code Mode — Go/JS/Python/Rust  │    ✓     │    ✓    │
 │ Syntax Highlighting (Chroma)   │    ✓     │    ✓    │
 │ Live WPM + Accuracy Stats      │    ✓     │    ✓    │
-│ WPM Graph Over Time            │ Sparkline│ Chart.js │
-│ Mistake Heatmap                │ Top-6    │ Keyboard │
+│ WPM Graph Over Time            │Sparkline │ Chart.js │
+│ Mistake Heatmap                │ Top-6    │Keyboard  │
 │ Blind Mode (muscle memory)     │    ✓     │    ✗    │
 │ Persistent Personal Bests      │    ✓     │    ✓    │
 │ Session History (last 200)     │    ✓     │    ✗    │
@@ -279,7 +278,7 @@ typist/
 
 <pre>
 ┌─────────────────────────────────────────────────────────────────┐
-│  MIT License  │  github.com/chuma-beep/typist                  │
+│  MIT License  │  github.com/chuma-beep/typist                   │
 └─────────────────────────────────────────────────────────────────┘
 </pre>
 <div align="center">
