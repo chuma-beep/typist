@@ -7,7 +7,9 @@
 <p align="center">
   <b>A fast, offline typing test</b><br>
   <sub>No account. No paywall. No internet required.</sub>
-</p>
+  
+</p>![demo](https://github.com/user-attachments/assets/44db1a19-edf9-40b7-8c36-766d5186ea24)
+
 
 <!-- Badges -->
 <p align="center">
