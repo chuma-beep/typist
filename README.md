@@ -1,7 +1,16 @@
 <div align="center">
 
-<!-- Animated Header -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=200&section=header&text=typist&fontSize=70&fontColor=fff&animation=fadeIn&fontAlignY=35" alt="typist header" />
+<!-- ASCII Art Logo -->
+<pre align="center">
+<code style="background: transparent;">
+ ____  ____  ____  __  ____  ____
+(_  _)(  _ \(  _ \(  )/ ___)(_  _)
+  )(   `\/ ) ) __/ )(  \___ \  )(
+ (__)  (__/ (__)  (__)(____/ (__)
+</code>
+</pre
+
+
 
 <!-- Tagline -->
 <p align="center">
@@ -21,16 +30,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/chuma-beep/typist?style=flat-square&color=green&logo=open-source-initiative" alt="license"></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="go version"></a>
 </p>
-
-<!-- ASCII Art Logo -->
-<pre align="center">
-<code style="background: transparent;">
- ____  ____  ____  __  ____  ____
-(_  _)(  _ \(  _ \(  )/ ___)(_  _)
-  )(   `\/ ) ) __/ )(  \___ \  )(
- (__)  (__/ (__)  (__)(____/ (__)
-</code>
-</pre>
 
 </div>
 
