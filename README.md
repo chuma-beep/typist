@@ -36,6 +36,12 @@
 
 
 </div>
+<!-- demo gif--->
+
+---
+
+![demo](https://github.com/user-attachments/assets/bf49be0a-184d-454f-9938-59dd84a626b0)
+
 
 ---
 
@@ -53,7 +59,6 @@
 - [Blind Mode](#blind-mode)
 - [Scores & Export](#scores--export)
 - [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
 - [Roadmap](#roadmap)
 - [License](#license)
 
@@ -62,26 +67,25 @@
 ---
 
 ## Features
-
-<div align="center">
-
-| Feature | Terminal | Web |
-|:---|:---:|:---:|
-| **Word Mode** — 30 common words | ✅ | ✅ |
-| **Time Mode** — 15 / 30 / 60 / 120s | ✅ | ✅ |
-| **Quote Mode** — Literary excerpts | ✅ | ✅ |
-| **Code Mode** — Go, JS, Python, Rust | ✅ | ✅ |
-| **Syntax Highlighting** (Chroma) | ✅ | ✅ |
-| **Live WPM + Accuracy Stats** | ✅ | ✅ |
-| **WPM Graph Over Time** | Sparkline | Chart.js |
-| **Mistake Heatmap** | Top-6 chars | Keyboard |
-| **Blind Mode** (muscle memory) | ✅ | — |
-| **Persistent Personal Bests** | ✅ | ✅ |
-| **Session History** (last 200) | ✅ | — |
-| **Export to JSON / CSV** | ✅ | — |
-| **Single Binary, Zero Deps** | ✅ | ✅ |
-
-</div>
+<pre>
+┌────────────────────────────────┬──────────┬──────────┐
+│ Feature                        │ Terminal │   Web    │
+├────────────────────────────────┼──────────┼──────────┤
+│ Word Mode — 30 common words    │    ✓     │    ✓    │
+│ Time Mode — 15/30/60/120s      │    ✓     │    ✓    │
+│ Quote Mode — Literary excerpts │    ✓     │    ✓    │
+│ Code Mode — Go/JS/Python/Rust  │    ✓     │    ✓    │
+│ Syntax Highlighting (Chroma)   │    ✓     │    ✓    │
+│ Live WPM + Accuracy Stats      │    ✓     │    ✓    │
+│ WPM Graph Over Time            │Sparkline │ Chart.js │
+│ Mistake Heatmap                │ Top-6    │Keyboard  │
+│ Blind Mode (muscle memory)     │    ✓     │    ✗    │
+│ Persistent Personal Bests      │    ✓     │    ✓    │
+│ Session History (last 200)     │    ✓     │    ✗    │
+│ Export to JSON / CSV           │    ✓     │    ✗    │
+│ Single Binary, Zero Deps       │    ✓     │    ✓    │
+└────────────────────────────────┴──────────┴──────────┘
+</pre>
 
 ---
 
@@ -138,37 +142,33 @@ typist --help   # Show all options
 ---
 
 ## Terminal UI
-
-### Menu Controls
-
-| Key | Action |
-|:---:|:---|
-| `←` `→` | Switch mode |
-| `↑` `↓` | Switch sub-row (time duration / code language) |
-| `Enter` | Start test |
-| `Esc` / `q` | Quit |
-
-### Typing Controls
-
-| Key | Action |
-|:---:|:---|
-| `Ctrl+R` | Restart with new text |
-| `Ctrl+B` | Toggle **Blind Mode** |
-| `Tab` | Type a tab (code mode) |
-| `Enter` | Type a newline (code mode) |
-| `Backspace` | Delete last character |
-| `Esc` | Quit |
-
-### Results Screen
-
-| Key | Action |
-|:---:|:---|
-| `Enter` / `R` | Try again |
-| `M` | Back to menu |
-| `H` | View session history |
-| `J` | Export scores to **JSON** |
-| `C` | Export scores to **CSV** |
-| `Esc` | Quit |
+Terminal UI
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│  CONTROLS                                                       │
+├─────────────────────────────────────────────────────────────────┤
+│  Menu                                                           │
+│    ← →     Switch mode                                          │
+│    ↑ ↓     Switch sub-row (time/lang)                           │
+│    Enter   Start test                                           │
+│    Esc/q   Quit                                                 │
+│                                                                 │
+│  Typing                                                         │
+│    Ctrl+R  Restart with new text                                │
+│    Ctrl+B  Toggle Blind Mode                                    │
+│    Tab     Type tab (code mode)                                 │
+│    Enter   Type newline (code mode)                             │
+│    Esc     Quit                                                 │
+│                                                                 │
+│  Results                                                        │
+│    Enter/R  Try again                                           │
+│    M        Back to menu                                        │
+│    H        View session history                                │
+│    J        Export to JSON                                      │
+│    C        Export to CSV                                       │
+│    Esc      Quit                                                │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
 
 ---
 
@@ -189,57 +189,57 @@ typist --web
 > The server automatically picks a free port on `127.0.0.1` — no conflicts, no firewall prompts.
 
 ---
+Code Mode
+Type real snippets with syntax highlighting powered by Chroma:
+<pre>
+┌────────────┬──────────┬────────────────────────────────────────┐
+│ Language   │ Snippets │ Examples                               │
+├────────────┼──────────┼────────────────────────────────────────┤
+│ Go         │    8     │ Generics, channels, linked lists       │
+│ JavaScript │    6     │ Debounce, memoize, EventEmitter        │
+│ Python     │    5     │ Quicksort, LRU cache, decorators       │
+│ Rust       │    5     │ Pattern matching, traits, generics     │
+└────────────┴──────────┴────────────────────────────────────────┘
+</pre>
 
-## Code Mode
-
-Type real, idiomatic code snippets with full syntax highlighting:
-
-<div align="center">
-
-| Language | Snippets | Examples |
-|:---:|:---:|:---|
-| **Go** | 8 | Generics, channels, linked lists, binary search |
-| **JavaScript** | 6 | Debounce, memoize, EventEmitter, async retry |
-| **Python** | 5 | Quicksort, LRU cache, decorators, generators |
-| **Rust** | 5 | Pattern matching, traits, generics, HashMap |
-
-</div>
-
-### Syntax Highlighting
-
-Powered by **[Chroma](https://github.com/alecthomas/chroma)** — the same library used by Hugo, Goldmark, and GitHub's Go tooling.
-
-Keywords, builtins, strings, comments, numbers, and operators each render in distinct colors using the **Catppuccin Mocha** palette.
-
-### Special Keys in Code Mode
-
-- `Tab` and `Enter` are **live keystrokes** — you must type them correctly
-- Perfect for building **muscle memory** on real code structure
-
----
 
 ## Blind Mode
-
-Press `Ctrl+B` during any test to toggle **Blind Mode**.
-
-> Every typed character becomes a `·` dot — green if correct, red if wrong — but the actual character is **never shown**.
-
-Forces you to type from **memory** rather than watching your hands. Essential for improving muscle memory!
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│  Ctrl+B  →  Every char becomes · (green=correct, red=wrong)     │
+│                                                                 │
+│  Forces typing from memory. Essential for muscle memory.        │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
 
 ---
 
 ## Scores & Export
 
-All results are automatically saved to `~/.typist/scores.json`.
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│  Storage:  ~/.typist/scores.json                                │
+│                                                                 │
+│  Export (from results screen):                                  │
+│    J  →  ~/typist-export-&lt;timestamp&gt;.json                 │
+│    C  →  ~/typist-export-&lt;timestamp&gt;.csv                  │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
 
-### Export Options (Results Screen)
+---
 
-| Key | Format | Output Location |
-|:---:|:---:|:---|
-| `J` | JSON | `~/typist-export-<timestamp>.json` |
-| `C` | CSV | `~/typist-export-<timestamp>.csv` |
-
-> The CSV is clean enough to drop into Excel or any data tool for your own analysis.
+Tech Stack
+<pre>
+┌────────────────────┬─────────────────────────┬──────────────────┐
+│ Component          │ Technology              │ Purpose          │
+├────────────────────┼─────────────────────────┼──────────────────┤
+│ TUI Framework      │ Bubble Tea              │ Elm architecture │
+│ Terminal Styling   │ Lipgloss                │ Colors/layout    │
+│ Syntax Highlight   │ Chroma v2               │ 300+ languages   │
+│ Web Charts         │ Chart.js                │ WPM graphs       │
+│ Core               │ Go Standard Library     │ HTTP, JSON, CSV  │
+└────────────────────┴─────────────────────────┴──────────────────┘
+</pre>
 
 ---
 
@@ -272,29 +272,6 @@ typist/
 
 ---
 
-## Tech Stack
-
-<div align="center">
-
-| Component | Technology | Purpose |
-|:---:|:---:|:---|
-| **TUI Framework** | [Bubble Tea](https://github.com/charmbracelet/bubbletea) | Elm architecture for terminal apps |
-| **Terminal Styling** | [Lipgloss](https://github.com/charmbracelet/lipgloss) | Terminal styling and layout |
-| **Syntax Highlighting** | [Chroma v2](https://github.com/alecthomas/chroma) | 300+ language tokenization |
-| **Web Charts** | [Chart.js](https://www.chartjs.org/) | WPM graphs in web UI (CDN) |
-| **Core** | Go Standard Library | HTTP server, JSON, CSV, file I/O |
-
-</div>
-
-### Why Go?
-
-- **Single binary** — easy distribution
-- **Fast startup** — instant feel
-- **`go:embed`** — zero-dependency distribution
-- **Dogfooding** — you're literally typing Go while learning Go
-
----
-
 ## Roadmap
 
 - [ ] WPM graph in TUI (unicode sparkline → full bar chart)
@@ -305,14 +282,14 @@ typist/
 
 ---
 
-## License
-
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
-
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│  MIT License  │  github.com/chuma-beep/typist                   │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
 <div align="center">
 
 **[Back to Top](#typist)**
 
-Made by [chuma-beep](https://github.com/chuma-beep)
 
 </div>
