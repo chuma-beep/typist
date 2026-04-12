@@ -111,3 +111,36 @@ func wrapCodeLines(text string) (lines []string, offsets []int) {
 	}
 	return
 }
+
+// ── Game mode word pools ───────────────────────────────────────────────────────
+
+var gameWords = []string{
+	"ace", "arc", "axe", "bay", "bin", "bit", "bot", "box",
+	"bug", "bus", "byte", "cap", "cel", "cpu", "cut", "dag",
+	"data", "dig", "disk", "dns", "dot", "elf", "end", "eta",
+	"fly", "fog", "fox", "ftp", "fuse", "gap", "gas", "gem",
+	"git", "gnu", "gpu", "gun", "gut", "hack", "hash", "hex",
+	"hop", "hub", "ion", "jar", "jet", "key", "lag", "lan",
+	"led", "lib", "link", "log", "lua", "map", "mem", "mod",
+	"net", "nil", "nix", "node", "null", "orm", "pan", "path",
+	"pid", "pin", "pip", "pkg", "pod", "pop", "port", "ptr",
+	"pub", "raw", "ref", "reg", "rig", "rng", "rom", "row",
+	"rpc", "run", "scan", "sdk", "set", "ssh", "sub", "syn",
+	"tab", "tar", "tcp", "tls", "tok", "top", "tty", "udp",
+	"uid", "url", "var", "vim", "vip", "vlan", "vm", "vpc",
+	"wan", "web", "win", "xor", "yum", "zip",
+}
+
+var bossWords = []string{
+	"compiler", "runtime", "bytecode", "overflow", "deadlock",
+	"protocol", "firewall", "terminal", "callback", "iterator",
+	"goroutine", "allocator", "scheduler", "interrupt", "bootloader",
+	"interface", "recursion", "debugger", "profiler", "benchmark",
+}
+
+func generateGameWord(isBoss bool) string {
+	if isBoss {
+		return bossWords[rand.Intn(len(bossWords))]
+	}
+	return gameWords[rand.Intn(len(gameWords))]
+}
