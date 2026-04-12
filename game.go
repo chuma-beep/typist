@@ -436,9 +436,7 @@ func (gs *GameState) render(width, height int) string {
 	playerX := gW/2 - 4
 	playerY := gH - 4
 	pStyle := lipgloss.NewStyle().Foreground(activeTheme.green).Bold(true)
-	// pDim := lipgloss.NewStyle().Foreground(activeTheme.teal)
-
-	paint(playerY-1, playerX+4, '▲', pStyle)
+	// paint(playerY-1, playerX+4,'▲', pStyle)
 	paintStr(playerY, playerX, "╔╪╗", pStyle)
 	paintStr(playerY+2, playerX, "╚▽╝", pStyle)
 
@@ -449,7 +447,7 @@ func (gs *GameState) render(width, height int) string {
 				beamY := int(p.y)
 				beamX := int(p.x)
 				bStyle := lipgloss.NewStyle().Foreground(activeTheme.green).Bold(true)
-				paint(beamY, beamX, '|', bStyle)
+				paint(beamY, beamX, '*', bStyle)
 			}
 		}
 	}
