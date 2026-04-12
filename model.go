@@ -578,11 +578,17 @@ func (m Model) updateConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "n", "N", "q", "Q":
 			m.state = m.prevState
+			if m.state == stateGame {
+				return m, gameTickCmd()
+			}
 			return m, nil
 		}
 	case tea.KeyEsc, tea.KeyEnter:
 		// Esc or Enter on the confirm screen = cancel (safe default)
 		m.state = m.prevState
+		if m.state == stateGame {
+			return m, gameTickCmd()
+		}
 		return m, nil
 	}
 	return m, nil
