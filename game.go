@@ -441,16 +441,9 @@ func (gs *GameState) render(width, height int) string {
 	pStyle := lipgloss.NewStyle().Foreground(activeTheme.green).Bold(true)
 	// pDim := lipgloss.NewStyle().Foreground(activeTheme.teal)
 
-	//   ▲
-	// ╔═╪═╗
-	// ║TYP║
-	// ╚═▽═╝
 	paint(playerY-1, playerX+4, '▲', pStyle)
-	paintStr(playerY, playerX, "╔═╪═╗", pStyle)
-	// paintStr(playerY+1, playerX, "", pDim)
-	// paintStr(playerY+1, playerX+1, " typist ", pStyle)
-	// paintStr(playerY+1, playerX+9, , pDim)
-	paintStr(playerY+2, playerX, "╚═▽═╝", pStyle)
+	paintStr(playerY, playerX, "╔╪╗", pStyle)
+	paintStr(playerY+2, playerX, "╚▽╝", pStyle)
 
 	// Cannon beam when locked and projectile exists
 	if gs.locked >= 0 {
@@ -464,11 +457,11 @@ func (gs *GameState) render(width, height int) string {
 		}
 	}
 
-	// ── Floor line ────────────────────────────────────────────────────────────
+	// Floor line
 	floorStyle := lipgloss.NewStyle().Foreground(activeTheme.surface0)
 	paintStr(gH-5, 0, strings.Repeat("─", gW), floorStyle)
 
-	// ── Render grid to string ─────────────────────────────────────────────────
+	// Render grid to string
 	var sb strings.Builder
 	for y, row := range grid {
 		for _, c := range row {
@@ -479,7 +472,7 @@ func (gs *GameState) render(width, height int) string {
 		}
 	}
 
-	// ── HUD: lives, score, level ───────────────────────────────────────────────
+	// HUD: lives, score, level 
 	hearts := ""
 	for i := 0; i < gLives; i++ {
 		if i < gs.lives {
@@ -510,7 +503,7 @@ func (gs *GameState) render(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, body)
 }
 
-// ── Game over screen ───────────────────────────────────────────────────────────
+// Game over screen
 
 func (gs *GameState) renderGameOver(width, height int) string {
 	titleStyle := lipgloss.NewStyle().Foreground(activeTheme.red).Bold(true)
