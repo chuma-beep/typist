@@ -20,7 +20,7 @@ import (
 const (
 	gW             = 70 // game field width in chars
 	gH             = 30 // game field height in rows
-	gLives         = 3
+	gLives         = 5
 	gLevelKills    = 10  // kills to level up
 	gMaxEnemies    = 5   // max simultaneous enemies
 	gTickMs        = 150 // ms per game tick (increased from 120 for slower pace)
