@@ -536,8 +536,8 @@ func (gs *GameState) renderGameOver(width, height int) string {
 
 	// ASCII game over art
 	art := lipgloss.NewStyle().Foreground(activeTheme.red).Bold(true).Render(
-		"╔═══════════════════╗\n" +
-			"║   G A M E  O V E R   ║\n" +
+		    "╔═══════════════════╗\n" +
+			"║ G A M E  O V E R  ║\n" +
 			"╚═══════════════════╝",
 	)
 
@@ -557,7 +557,7 @@ func (gs *GameState) renderGameOver(width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, body)
 }
 
-// ── Model integration — called from model.go ──────────────────────────────────
+// Model integration called from model.go
 
 func (m Model) updateGameMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
