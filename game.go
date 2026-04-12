@@ -19,7 +19,7 @@ import (
 
 const (
 	gW             = 70 // game field width in chars
-	gH             = 22 // game field height in rows
+	gH             = 30 // game field height in rows
 	gLives         = 3
 	gLevelKills    = 10  // kills to level up
 	gMaxEnemies    = 5   // max simultaneous enemies
