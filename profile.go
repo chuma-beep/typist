@@ -232,8 +232,8 @@ func viewProfile(pd ProfileData, width, height int) string {
 	divW := 14 * 6
 	div := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", divW))
 
-	// ── WPM trend sparkline ────────────────────────────────────────────────────
-	trendStr := renderTrendSparkline(pd.trend)
+	// ── WPM trend chart ────────────────────────────────────────────────────
+	trendStr := renderTrendChart(pd.trend)
 	trendLabel := dim.Render(fmt.Sprintf("last %d sessions", len(pd.trend)))
 
 	// ── Personal bests table ───────────────────────────────────────────────────
@@ -348,19 +348,26 @@ func viewProfile(pd ProfileData, width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, full)
 }
 
-// ── Sparkline ──────────────────────────────────────────────────────────────────
+// ── Trend chart ──────────────────────────────────────────────────────────────────
 
-func renderTrendSparkline(samples []float64) string {
-	const barRunes = "▁▂▃▄▅▆▇█"
-	runes := []rune(barRunes)
-	n := len(runes)
+// renderTrendChart is a 5-row grid chart like the results screen.
+// It shows the WPM trend over recent sessions with Y-axis labels.
+func renderTrendChart(samples []float64) string {
+	const chartH = 5
+	const minRange = 15.0
+	maxCols := 30
+	if maxCols < 10 {
+		maxCols = 10
+	}
 
 	if len(samples) == 0 {
 		return hintStyle.Render("no data")
 	}
 
+	// Compute stats
 	minV, maxV := samples[0], samples[0]
 	peakIdx := 0
+	sum := 0.0
 	for i, v := range samples {
 		if v > maxV {
 			maxV = v
@@ -369,14 +376,15 @@ func renderTrendSparkline(samples []float64) string {
 		if v < minV {
 			minV = v
 		}
+		sum += v
 	}
+	avg := sum / float64(len(samples))
 
 	// Enforce min visible range
-	if maxV-minV < 10 {
-		half := 5.0
-		mid := (minV + maxV) / 2
-		minV = mid - half
-		maxV = mid + half
+	if maxV-minV < minRange {
+		half := minRange / 2
+		minV = avg - half
+		maxV = avg + half
 		if minV < 0 {
 			minV = 0
 		}
@@ -386,36 +394,103 @@ func renderTrendSparkline(samples []float64) string {
 		rangeV = 1
 	}
 
-	var sb strings.Builder
-	for i, v := range samples {
-		idx := int((v - minV) / rangeV * float64(n-1))
-		if idx < 0 {
-			idx = 0
+	// Limit columns (downsample if needed)
+	cols := samples
+	if len(cols) > maxCols {
+		down := make([]float64, maxCols)
+		for i := range down {
+			idx := int(float64(i) / float64(maxCols) * float64(len(samples)))
+			if idx >= len(samples) {
+				idx = len(samples) - 1
+			}
+			down[i] = samples[idx]
 		}
-		if idx >= n {
-			idx = n - 1
-		}
-		ch := string(runes[idx])
-		if i == peakIdx {
-			sb.WriteString(sparkPeakStyle.Render(ch))
-		} else {
-			sb.WriteString(sparkBarStyle.Render(ch))
+		cols = down
+		peakIdx = 0
+		for i, v := range cols {
+			if v > cols[peakIdx] {
+				peakIdx = i
+			}
 		}
 	}
 
-	stats := lipgloss.JoinHorizontal(lipgloss.Top,
-		hintStyle.Render(fmt.Sprintf("%.0f low  ", minV)),
-		sparkBarStyle.Render(fmt.Sprintf("%.0f avg  ", func() float64 {
-			s := 0.0
-			for _, v := range samples {
-				s += v
+	// Map to heights 1..chartH
+	heights := make([]int, len(cols))
+	for i, v := range cols {
+		h := int((v-minV)/rangeV*float64(chartH-1)) + 1
+		if h < 1 {
+			h = 1
+		}
+		if h > chartH {
+			h = chartH
+		}
+		heights[i] = h
+	}
+
+	// Y-axis labels
+	topLabel := fmt.Sprintf("%3.0f", maxV)
+	midLabel := fmt.Sprintf("%3.0f", (minV+maxV)/2)
+	botLabel := fmt.Sprintf("%3.0f", minV)
+	yW := len(topLabel)
+
+	emptyStyle := lipgloss.NewStyle().Foreground(activeTheme.surface1)
+	fillStyle := sparkBarStyle
+	peakStyle := sparkPeakStyle
+	yStyle := hintStyle
+
+	// Build rows top→bottom
+	rows := make([]string, chartH)
+	for row := 0; row < chartH; row++ {
+		level := chartH - row
+		var sb strings.Builder
+
+		// Y-axis label
+		switch row {
+		case 0:
+			sb.WriteString(yStyle.Render(topLabel + " "))
+		case chartH / 2:
+			sb.WriteString(yStyle.Render(midLabel + " "))
+		case chartH - 1:
+			sb.WriteString(yStyle.Render(botLabel + " "))
+		default:
+			sb.WriteString(strings.Repeat(" ", yW+1))
+		}
+
+		for ci, h := range heights {
+			switch {
+			case level > h:
+				sb.WriteString(emptyStyle.Render("·"))
+			case level == h:
+				if ci == peakIdx {
+					sb.WriteString(peakStyle.Render("█"))
+				} else {
+					sb.WriteString(sparkBarStyle.Render("▆"))
+				}
+			default:
+				if ci == peakIdx {
+					sb.WriteString(peakStyle.Render("█"))
+				} else {
+					sb.WriteString(fillStyle.Render("█"))
+				}
 			}
-			return s / float64(len(samples))
-		}())),
+		}
+		rows[row] = sb.String()
+	}
+
+	// X-axis
+	xAxis := strings.Repeat(" ", yW+1) +
+		lipgloss.NewStyle().Foreground(activeTheme.surface1).
+			Render(strings.Repeat("─", len(cols)))
+
+	// Footer stats
+	footer := lipgloss.JoinHorizontal(lipgloss.Top,
+		hintStyle.Render(fmt.Sprintf("%d sessions  ", len(samples))),
+		sparkBarStyle.Render(fmt.Sprintf("%.0f avg  ", avg)),
 		sparkPeakStyle.Render(fmt.Sprintf("%.0f peak", maxV)),
 	)
 
-	return lipgloss.JoinVertical(lipgloss.Left, sb.String(), stats)
+	result := []string{rows[0], rows[1], rows[2], rows[3], rows[4], xAxis, footer}
+	return strings.Join(result, "\n")
 }
 
 // ── Activity map ───────────────────────────────────────────────────────────────
