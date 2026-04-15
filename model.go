@@ -83,7 +83,6 @@ func exportCSVCmd() tea.Cmd {
 }
 
 // ── mistakeEntry for sorting heatmap ─────────────────────────────────────────
-
 type mistakeEntry struct {
 	ch    rune
 	count int
@@ -457,6 +456,7 @@ func (m Model) handleTypingKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.started {
 		m.started = true
 		m.startTime = time.Now()
+		m.wpmSamples = append(m.wpmSamples, m.calcWPM())
 	}
 	switch msg.Type {
 	case tea.KeyBackspace:

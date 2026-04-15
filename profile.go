@@ -1,6 +1,6 @@
 package main
 
-// ── profile.go ─────────────────────────────────────────────────────────────────
+// profile.go
 // Profile Dashboard — Ctrl+P from any screen.
 // Shows: WPM trend sparkline, personal bests table, daily activity heatmap.
 
@@ -15,7 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ── Profile data ───────────────────────────────────────────────────────────────
+// Profile data
 
 type ProfileData struct {
 	entries       []ScoreEntry // all sessions, newest first
@@ -175,8 +175,7 @@ func calcStreak(entries []ScoreEntry) int {
 	return streak
 }
 
-// ── Rendering ──────────────────────────────────────────────────────────────────
-
+// Rendering
 func viewProfile(pd ProfileData, width, height int) string {
 	if pd.totalSessions == 0 {
 		empty := lipgloss.JoinVertical(lipgloss.Center,
@@ -194,7 +193,7 @@ func viewProfile(pd ProfileData, width, height int) string {
 	head := lipgloss.NewStyle().Foreground(activeTheme.surface2)
 	num := lipgloss.NewStyle().Bold(true)
 
-	// ── Header stat row ────────────────────────────────────────────────────────
+	// header stat row
 	mkStat := func(val, label string, col lipgloss.Color) string {
 		return lipgloss.NewStyle().Width(14).Render(
 			lipgloss.JoinVertical(lipgloss.Left,
@@ -232,11 +231,11 @@ func viewProfile(pd ProfileData, width, height int) string {
 	divW := 14 * 6
 	div := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", divW))
 
-	// ── WPM trend chart ────────────────────────────────────────────────────
+	// WPM trend chart
 	trendStr := renderTrendChart(pd.trend)
 	trendLabel := dim.Render(fmt.Sprintf("last %d sessions", len(pd.trend)))
 
-	// ── Personal bests table ───────────────────────────────────────────────────
+	// Personal bests table
 	pbTitle := lipgloss.NewStyle().Foreground(activeTheme.subtext0).Render("personal bests")
 
 	colMode := func(s string, w int) string {
@@ -286,7 +285,7 @@ func viewProfile(pd ProfileData, width, height int) string {
 		pbLines = append(pbLines, row)
 	}
 
-	// ── Activity heatmap — GitHub-style last 70 days ───────────────────────────
+	// Activity heatmap
 	actTitle := dim.Render("daily activity  (last 70 days)")
 
 	// Find max for scaling
@@ -302,11 +301,11 @@ func viewProfile(pd ProfileData, width, height int) string {
 	actRows := renderActivityMap(pd.dailyMap, maxAct)
 	dayLabels := dim.Render("S M T W T F S")
 
-	// ── Weekly pattern bar ─────────────────────────────────────────────────────
+	// Weekly pattern bar
 	weekTitle := dim.Render("activity by day of week")
 	weekBar := renderWeekBar(pd.weekActivity)
 
-	// ── Assemble ───────────────────────────────────────────────────────────────
+	// Assemble
 	title := lipgloss.NewStyle().Foreground(activeTheme.mauve).Bold(true).Render("profile")
 	hint := hintStyle.Render("ctrl+o/ctrl+p  close   ctrl+t  theme")
 
@@ -348,7 +347,7 @@ func viewProfile(pd ProfileData, width, height int) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, full)
 }
 
-// ── Trend chart ──────────────────────────────────────────────────────────────────
+// Trend chart
 
 // renderTrendChart is a 5-row grid chart like the results screen.
 // It shows the WPM trend over recent sessions with Y-axis labels.
@@ -356,19 +355,25 @@ func renderTrendChart(samples []float64) string {
 	const chartH = 5
 	const minRange = 15.0
 	maxCols := 30
-	if maxCols < 10 {
-		maxCols = 10
+	if maxCols < 20 {
+		maxCols = 20
 	}
 
 	if len(samples) == 0 {
 		return hintStyle.Render("no data")
 	}
 
+	// Drop first 2 noisy samples only when there are enough to spare
+	filtered := samples
+	if len(filtered) > 4 {
+		filtered = filtered[2:]
+	}
+
 	// Compute stats
-	minV, maxV := samples[0], samples[0]
+	minV, maxV := filtered[0], filtered[0]
 	peakIdx := 0
 	sum := 0.0
-	for i, v := range samples {
+	for i, v := range filtered {
 		if v > maxV {
 			maxV = v
 			peakIdx = i
@@ -378,7 +383,7 @@ func renderTrendChart(samples []float64) string {
 		}
 		sum += v
 	}
-	avg := sum / float64(len(samples))
+	avg := sum / float64(len(filtered))
 
 	// Enforce min visible range
 	if maxV-minV < minRange {
@@ -395,15 +400,15 @@ func renderTrendChart(samples []float64) string {
 	}
 
 	// Limit columns (downsample if needed)
-	cols := samples
+	cols := filtered
 	if len(cols) > maxCols {
 		down := make([]float64, maxCols)
 		for i := range down {
-			idx := int(float64(i) / float64(maxCols) * float64(len(samples)))
-			if idx >= len(samples) {
-				idx = len(samples) - 1
+			idx := int(float64(i) / float64(maxCols) * float64(len(filtered)))
+			if idx >= len(filtered) {
+				idx = len(filtered) - 1
 			}
-			down[i] = samples[idx]
+			down[i] = filtered[idx]
 		}
 		cols = down
 		peakIdx = 0
@@ -484,7 +489,7 @@ func renderTrendChart(samples []float64) string {
 
 	// Footer stats
 	footer := lipgloss.JoinHorizontal(lipgloss.Top,
-		hintStyle.Render(fmt.Sprintf("%d sessions  ", len(samples))),
+		hintStyle.Render(fmt.Sprintf("%d sessions  ", len(filtered))),
 		sparkBarStyle.Render(fmt.Sprintf("%.0f avg  ", avg)),
 		sparkPeakStyle.Render(fmt.Sprintf("%.0f peak", maxV)),
 	)
@@ -493,7 +498,7 @@ func renderTrendChart(samples []float64) string {
 	return strings.Join(result, "\n")
 }
 
-// ── Activity map ───────────────────────────────────────────────────────────────
+// Activity map
 
 func renderActivityMap(days []dayCell, maxCount int) string {
 	if maxCount == 0 {
@@ -551,7 +556,7 @@ func activityCell(count, maxCount int) string {
 	return lipgloss.NewStyle().Foreground(col).Bold(h >= 0.75).Render("▪")
 }
 
-// ── Weekly bar chart ───────────────────────────────────────────────────────────
+// Weekly bar chart
 
 func renderWeekBar(counts [7]int) string {
 	days := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
@@ -595,10 +600,10 @@ func renderWeekBar(counts [7]int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Bottom, cols...)
 }
 
-// ── Unused import guard ────────────────────────────────────────────────────────
+// Unused import guard
 var _ = math.Sqrt // ensure math is used (used in game.go too, but keep explicit)
 
-// ── Model integration ──────────────────────────────────────────────────────────
+//Model integration
 
 func (m Model) updateProfile(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
