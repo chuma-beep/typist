@@ -89,23 +89,14 @@
 
 ---
 
-## Quick Start
-
-```bash
-# Clone and build
-git clone https://github.com/chuma-beep/typist
-cd typist && go mod tidy && go build -o typist .
-
-# Run
-typist          # Terminal UI
-typist --web    # Web UI (auto-opens browser)
-```
-
----
-
 ## Installation
 
-### Prerequisites
+```bash
+
+   go install github.com/chuma-beep/typist@latest
+
+```
+### Prerequisite
 - **Go 1.21+** — [Download here](https://go.dev/dl/)
 
 ### Build from Source
@@ -125,10 +116,8 @@ go build -o typist .
 mv typist ~/.local/bin/  # Linux/Mac
 # or
 mv typist $GOPATH/bin/   # If GOPATH is set
+
 ```
-
-> **Tip:** The binary is completely self-contained — no runtime dependencies needed!
-
 ---
 
 ## Usage
