@@ -70,6 +70,7 @@ changelog:
 dockers_v2:
   - images:
       - chuma-beep/typist
+    sbom: false
 
 release:
   github:
