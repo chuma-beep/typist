@@ -93,7 +93,7 @@
 
 ```bash
 
-   go install github.com/chuma-beep/typist@latest
+go install github.com/chuma-beep/typist@latest
 
 ```
 ### Prerequisite
