@@ -67,11 +67,6 @@ changelog:
     - title: Others
       order: 999
 
-dockers_v2:
-  - images:
-      - chuma-beep/typist
-    sbom: false
-
 release:
   github:
     owner: chuma-beep
