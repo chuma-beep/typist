@@ -117,6 +117,35 @@ mv typist ~/.local/bin/  # Linux/Mac
 # or
 mv typist $GOPATH/bin/   # If GOPATH is set
 
+```   
+---
+
+## Quick Start with Docker
+
+Run Typist instantly — no need to install Go or any dependencies.
+
+### Steps
+
+*1. Clone the repository:*
+```bash
+   git clone https://github.com/chuma-beep/typist.git
+   cd typist
+```
+*2. Run the application:*
+```bash
+docker compose up --build
+```
+*3. Open the app in your browser:*
+http://localhost:33241
+
+#### Features
+Multi-stage Dockerfile (Go → Alpine) for a small and secure image
+Non-root user for better security
+Only the compiled binary is shipped in the final image
+
+*4. Stop the app with:*
+```bash
+docker compose down
 ```
 ---
 
@@ -200,37 +229,7 @@ Type real snippets with syntax highlighting powered by Chroma:
 │  Forces typing from memory. Essential for muscle memory.        │
 └─────────────────────────────────────────────────────────────────┘
 </pre>
-
 ---
-
-## Quick Start with Docker
-
-Run Typist instantly — no need to install Go or any dependencies.
-
-### Steps
-
-*1. Clone the repository:*
-```bash
-   git clone https://github.com/chuma-beep/typist.git
-   cd typist
-```
-*2. Run the application:*
-```bash
-docker compose up --build
-```
-*3. Open the app in your browser:*
-http://localhost:33241
-
-#### Features
-Multi-stage Dockerfile (Go → Alpine) for a small and secure image
-Non-root user for better security
-Only the compiled binary is shipped in the final image
-
-*4. Stop the app with:*
-```bash
-docker compose down
-```
-
 
 ## Scores & Export
 
