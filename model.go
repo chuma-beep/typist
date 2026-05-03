@@ -111,6 +111,8 @@ type Model struct {
 
 	blindMode bool
 	focusMode bool // hide stats while typing
+	showKeys  bool // show live keyboard while typing
+	lastKey   rune // most recently pressed key
 	themeIdx  int  // index into themes slice
 
 	totalKeys     int
@@ -325,7 +327,7 @@ func (m Model) goToMenu() Model {
 	next.width, next.height = m.width, m.height
 	next.mode, next.timeLimitIdx, next.langIdx = m.mode, m.timeLimitIdx, m.langIdx
 	next.customTimeSecs = m.customTimeSecs
-	next.focusMode, next.themeIdx = m.focusMode, m.themeIdx
+	next.focusMode, next.themeIdx, next.showKeys = m.focusMode, m.themeIdx, m.showKeys
 	return next
 }
 
@@ -445,6 +447,9 @@ func (m Model) updateTyping(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyCtrlF:
 		m.focusMode = !m.focusMode
 		return m, nil
+	case tea.KeyCtrlK:
+		m.showKeys = !m.showKeys
+		return m, nil
 	case tea.KeyCtrlT:
 		m.toggleTheme()
 		return m, nil
@@ -466,21 +471,26 @@ func (m Model) handleTypingKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.input = m.input[:len(m.input)-1]
 			m.rawCharsTyped++ // backspace costs a keystroke
 		}
+		m.lastKey = '⌫'
 	case tea.KeySpace:
 		m.rawCharsTyped++
 		m = m.appendRune(' ')
+		m.lastKey = ' '
 	case tea.KeyTab:
 		m.rawCharsTyped++
 		m = m.appendRune('\t')
+		m.lastKey = '\t'
 	case tea.KeyEnter:
 		if m.mode == modeCode {
 			m.rawCharsTyped++
 			m = m.appendRune('\n')
 		}
+		m.lastKey = '\n'
 	case tea.KeyRunes:
 		for _, r := range msg.Runes {
 			m.rawCharsTyped++
 			m = m.appendRune(r)
+			m.lastKey = r
 		}
 	}
 	if m.mode != modeTime && len(m.input) >= len(m.target) {
@@ -1046,8 +1056,12 @@ func (m Model) viewTyping() string {
 
 	parts = append(parts, progress, textBlock, "")
 
+	if m.showKeys {
+		parts = append(parts, m.renderLiveKeyboard())
+	}
+
 	if !m.focusMode {
-		parts = append(parts, hintStyle.Render("ctrl+r restart  ctrl+g menu  ctrl+b blind  ctrl+f focus  ctrl+t theme  esc quit"))
+		parts = append(parts, hintStyle.Render("ctrl+r restart  ctrl+g menu  ctrl+b blind  ctrl+k keyboard  ctrl+f focus  ctrl+t theme  esc quit"))
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, parts...)
@@ -1107,13 +1121,13 @@ func (m Model) viewResults() string {
 	}
 
 	// ── Divider ───────────────────────────────────────────────────────────
-	// Use terminal width minus margins for the chart; min 20, max 80
+	// Use terminal width minus margins for the chart; min 20, max 120
 	divW := m.width - 20
 	if divW < 20 {
 		divW = 20
 	}
-	if divW > 80 {
-		divW = 80
+	if divW > 120 {
+		divW = 120
 	}
 	div := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", divW))
 
@@ -1296,6 +1310,9 @@ func (m Model) renderBarChart(maxCols int) []string {
 	if maxCols < 20 {
 		maxCols = 20
 	}
+	if maxCols > 120 {
+		maxCols = 120
+	}
 
 	allSamples := m.wpmSamples
 	if len(allSamples) == 0 {
@@ -1467,14 +1484,17 @@ func (m Model) renderKeyboard() []string {
 		label string
 		r     rune
 	}{
-		{{"q", 'q'}, {" w", 'w'}, {" e", 'e'}, {" r", 'r'}, {" t", 't'}, {" y", 'y'}, {" u", 'u'}, {" i", 'i'}, {" o", 'o'}, {" p", 'p'}},
-		{{" a", 'a'}, {" s", 's'}, {" d", 'd'}, {" f", 'f'}, {" g", 'g'}, {" h", 'h'}, {" j", 'j'}, {" k", 'k'}, {" l", 'l'}},
-		{{"  z", 'z'}, {" x", 'x'}, {" c", 'c'}, {" v", 'v'}, {" b", 'b'}, {" n", 'n'}, {" m", 'm'}},
+		{{"`", '`'}, {"1", '1'}, {"2", '2'}, {"3", '3'}, {"4", '4'}, {"5", '5'}, {"6", '6'}, {"7", '7'}, {"8", '8'}, {"9", '9'}, {"0", '0'}, {"-", '-'}, {"=", '='}},
+		{{"[", '['}, {"]", ']'}, {"\\", '\\'}, {"q", 'q'}, {"w", 'w'}, {"e", 'e'}, {"r", 'r'}, {"t", 't'}, {"y", 'y'}, {"u", 'u'}, {"i", 'i'}, {"o", 'o'}, {"p", 'p'}, {";", ';'}, {"'", '\''}},
+		{{"a", 'a'}, {"s", 's'}, {"d", 'd'}, {"f", 'f'}, {"g", 'g'}, {"h", 'h'}, {"j", 'j'}, {"k", 'k'}, {"l", 'l'}, {",", ','}, {".", '.'}, {"/", '/'}},
+		{{"z", 'z'}, {"x", 'x'}, {"c", 'c'}, {"v", 'v'}, {"b", 'b'}, {"n", 'n'}, {"m", 'm'}},
 	}
 
 	var rows []string
-	for _, row := range kbRows {
+	indents := []string{"", " ", "  ", "   "}
+	for ri, row := range kbRows {
 		var sb strings.Builder
+		sb.WriteString(indents[ri])
 		for _, key := range row {
 			sb.WriteString(renderKey(key.label, countFor(key.r)))
 		}
@@ -1483,9 +1503,10 @@ func (m Model) renderKeyboard() []string {
 
 	// Special keys
 	spRow := lipgloss.JoinHorizontal(lipgloss.Top,
-		renderKey("  space  ", countFor(' ')),
-		renderKey("  tab ", countFor('\t')),
-		renderKey("  ret ", countFor('\n')),
+		renderKey("⌫", 0),
+		renderKey("tab", '\t'),
+		renderKey("      space      ", countFor(' ')),
+		renderKey("↵", '\n'),
 	)
 	rows = append(rows, spRow)
 	return rows
@@ -1663,4 +1684,147 @@ func (m Model) viewHistory() string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, parts...)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, body)
+}
+
+// ── Live keyboard display ──────────────────────────────────────────────────────
+
+func (m Model) renderLiveKeyboard() string {
+	last := m.lastKey
+
+	type kDef struct {
+		label string
+		match func(rune) bool
+	}
+
+	rows := [][]kDef{
+		{
+			{"`", func(r rune) bool { return r == '`' || r == '~' }},
+			{"1", func(r rune) bool { return r == '1' || r == '!' }},
+			{"2", func(r rune) bool { return r == '2' || r == '@' }},
+			{"3", func(r rune) bool { return r == '3' || r == '#' }},
+			{"4", func(r rune) bool { return r == '4' || r == '$' }},
+			{"5", func(r rune) bool { return r == '5' || r == '%' }},
+			{"6", func(r rune) bool { return r == '6' || r == '^' }},
+			{"7", func(r rune) bool { return r == '7' || r == '&' }},
+			{"8", func(r rune) bool { return r == '8' || r == '*' }},
+			{"9", func(r rune) bool { return r == '9' || r == '(' }},
+			{"0", func(r rune) bool { return r == '0' || r == ')' }},
+			{"-", func(r rune) bool { return r == '-' || r == '_' }},
+			{"=", func(r rune) bool { return r == '=' || r == '+' }},
+		},
+		{
+			{"[", func(r rune) bool { return r == '[' || r == '{' }},
+			{"]", func(r rune) bool { return r == ']' || r == '}' }},
+			{"\\", func(r rune) bool { return r == '\\' || r == '|' }},
+			{"q", func(r rune) bool { return r == 'q' || r == 'Q' }},
+			{"w", func(r rune) bool { return r == 'w' || r == 'W' }},
+			{"e", func(r rune) bool { return r == 'e' || r == 'E' }},
+			{"r", func(r rune) bool { return r == 'r' || r == 'R' }},
+			{"t", func(r rune) bool { return r == 't' || r == 'T' }},
+			{"y", func(r rune) bool { return r == 'y' || r == 'Y' }},
+			{"u", func(r rune) bool { return r == 'u' || r == 'U' }},
+			{"i", func(r rune) bool { return r == 'i' || r == 'I' }},
+			{"o", func(r rune) bool { return r == 'o' || r == 'O' }},
+			{"p", func(r rune) bool { return r == 'p' || r == 'P' }},
+			{";", func(r rune) bool { return r == ';' || r == ':' }},
+			{"'", func(r rune) bool { return r == '\'' || r == '"' }},
+		},
+		{
+			{"a", func(r rune) bool { return r == 'a' || r == 'A' }},
+			{"s", func(r rune) bool { return r == 's' || r == 'S' }},
+			{"d", func(r rune) bool { return r == 'd' || r == 'D' }},
+			{"f", func(r rune) bool { return r == 'f' || r == 'F' }},
+			{"g", func(r rune) bool { return r == 'g' || r == 'G' }},
+			{"h", func(r rune) bool { return r == 'h' || r == 'H' }},
+			{"j", func(r rune) bool { return r == 'j' || r == 'J' }},
+			{"k", func(r rune) bool { return r == 'k' || r == 'K' }},
+			{"l", func(r rune) bool { return r == 'l' || r == 'L' }},
+			{",", func(r rune) bool { return r == ',' || r == '<' }},
+			{".", func(r rune) bool { return r == '.' || r == '>' }},
+			{"/", func(r rune) bool { return r == '/' || r == '?' }},
+		},
+		{
+			{"z", func(r rune) bool { return r == 'z' || r == 'Z' }},
+			{"x", func(r rune) bool { return r == 'x' || r == 'X' }},
+			{"c", func(r rune) bool { return r == 'c' || r == 'C' }},
+			{"v", func(r rune) bool { return r == 'v' || r == 'V' }},
+			{"b", func(r rune) bool { return r == 'b' || r == 'B' }},
+			{"n", func(r rune) bool { return r == 'n' || r == 'N' }},
+			{"m", func(r rune) bool { return r == 'm' || r == 'M' }},
+		},
+	}
+
+	activeStyle := lipgloss.NewStyle().
+		Foreground(activeTheme.base).
+		Background(activeTheme.cursor).
+		Bold(true).Padding(0, 1)
+
+	restStyle := lipgloss.NewStyle().
+		Foreground(activeTheme.surface2).
+		Background(activeTheme.surface0).
+		Padding(0, 1)
+
+	specialActive := lipgloss.NewStyle().
+		Foreground(activeTheme.base).
+		Background(activeTheme.mauve).
+		Bold(true).Padding(0, 1)
+
+	renderKey := func(label string, active bool) string {
+		if active {
+			return activeStyle.Render(label)
+		}
+		return restStyle.Render(label)
+	}
+
+	var lines []string
+	indents := []string{"", " ", "  ", "   "}
+	for ri, row := range rows {
+		var sb strings.Builder
+		sb.WriteString(indents[ri])
+		for _, k := range row {
+			active := k.match(last)
+			sb.WriteString(renderKey(k.label, active))
+			sb.WriteString(" ")
+		}
+		lines = append(lines, sb.String())
+	}
+
+	bkspActive := last == '⌫'
+	spcActive := last == ' '
+	tabActive := last == '\t'
+	retActive := last == '\n'
+
+	specialRow := lipgloss.JoinHorizontal(lipgloss.Top,
+		"      ",
+		func() string {
+			if bkspActive {
+				return specialActive.Render("⌫")
+			}
+			return restStyle.Render("⌫")
+		}(),
+		"  ",
+		func() string {
+			if tabActive {
+				return specialActive.Render("⇥")
+			}
+			return restStyle.Render("⇥")
+		}(),
+		"   ",
+		func() string {
+			if spcActive {
+				return specialActive.Render("      space      ")
+			}
+			return restStyle.Render("      space      ")
+		}(),
+		"  ",
+		func() string {
+			if retActive {
+				return specialActive.Render("↵")
+			}
+			return restStyle.Render("↵")
+		}(),
+	)
+
+	lines = append(lines, specialRow)
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

@@ -125,6 +125,18 @@ main{display:flex;flex-direction:column;align-items:center;justify-content:cente
 .act-btn:hover{background:var(--s1);color:var(--tx);}
 .act-btn.primary{background:var(--mauve);border-color:var(--mauve);color:var(--base);font-weight:600;}
 .act-btn.primary:hover{filter:brightness(1.1);}
+/* ── Live keyboard ───────────────────────────────────────────────────────────── */
+.live-kb-wrap{display:none;width:100%;margin-top:.75rem;}
+.live-kb-wrap.show{display:block;}
+.lk{display:flex;flex-direction:column;gap:3px;align-items:center;}
+.lk-row{display:flex;gap:3px;}
+.lk-key{min-width:28px;height:28px;border-radius:4px;background:var(--s0);color:var(--s2);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:var(--font-mono);border:1px solid var(--s1);transition:all .1s;}
+.lk-key.w1h{min-width:42px;}.lk-key.w2{min-width:56px;}.lk-key.spc{min-width:180px;}
+.lk-key.active{background:var(--cursor);color:var(--base);border-color:var(--cursor);font-weight:700;}
+.lk-key.pressed{background:var(--cursor);color:var(--base);border-color:var(--cursor);font-weight:700;}
+.lk-key.correct{background:var(--correct);color:var(--base);border-color:var(--correct);}
+.lk-key.wrong{background:var(--wrong);color:var(--base);border-color:var(--wrong);}
+.lk-spacer{padding-left:14px;}
 /* ── Footer ──────────────────────────────────────────────────────────────────── */
 footer{text-align:center;padding:.75rem;font-size:.72rem;color:var(--s1);border-top:1px solid var(--s0);}
 footer a{color:var(--s2);text-decoration:none;}
@@ -180,7 +192,7 @@ footer a:hover{color:var(--mauve);}
 </nav>
 
 <!-- About panel -->
-<div class="about-overlay open" id="about-overlay">
+<div class="about-overlay" id="about-overlay">
   <div class="about-panel">
     <button class="about-close" id="about-close">✕</button>
     <div class="about-logo">typist</div>
@@ -265,7 +277,10 @@ footer a:hover{color:var(--mauve);}
     <div class="attr" id="attr"></div>
     <div class="progress-wrap"><div class="progress-fill" id="prog" style="width:0%"></div></div>
     <div id="word-display"></div>
-    <div class="hint-bar"><kbd>ctrl+r</kbd> restart · <kbd>tab</kbd> · <kbd>enter</kbd> · <kbd>esc</kbd> new test</div>
+    <div class="live-kb-wrap" id="live-kb-wrap">
+      <div class="lk" id="live-kb"></div>
+    </div>
+    <div class="hint-bar"><kbd>ctrl+r</kbd> restart · <kbd>ctrl+k</kbd> keyboard · <kbd>tab</kbd> · <kbd>enter</kbd> · <kbd>esc</kbd> new test</div>
   </div>
 
   <div id="results-panel">
@@ -312,6 +327,7 @@ footer a:hover{color:var(--mauve);}
 <script>
 // ── State (declared first so all functions can reference these safely) ────────
 const $ = id => document.getElementById(id);
+const overlay = $('about-overlay');
 let mode='words', subOpt='';
 const subOpts = {time:['15s','30s','60s','120s'],code:['go','js','python','rust']};
 const timeSecs = {'15s':15,'30s':30,'60s':60,'120s':120};
@@ -320,6 +336,8 @@ let inputIdx=0, totalKeys=0, errors=0;
 let startTime=null, running=false, finished=false;
 let timeLeft=30, timerIval=null, wpmIval=null;
 let mistakeMap={}, wpmHistory=[];
+let lastKey='', lastKeyCorrect=true;
+let showKeyboard=false;
 let wpmChart=null;
 
 // ── Theme switching ───────────────────────────────────────────────────────────
@@ -637,7 +655,8 @@ function buildDisplay() {
 $('capture').addEventListener('keydown', e => {
   if (finished) return;
   if (e.ctrlKey&&e.key==='r'){e.preventDefault();newTest();return;}
-  if (e.key==='Escape'){newTest();return;}
+  if (e.ctrlKey&&e.key==='k'){e.preventDefault();showKeyboard=!showKeyboard;updateLiveKeyboard();return;}
+  if (e.key==='Escape'){return;} // ESC handled by document listener
   if (e.key==='Backspace'){e.preventDefault();handleBackspace();return;}
   if (e.key==='Tab'){e.preventDefault();handleChar('\t');return;}
   if (e.key==='Enter'&&mode==='code'){e.preventDefault();handleChar('\n');return;}
@@ -654,6 +673,7 @@ function handleChar(ch) {
   const expected=charEls[inputIdx].dataset.ch;
   totalKeys++;
   const ok=ch===expected;
+  lastKey=ch; lastKeyCorrect=ok;
   if (!ok) { errors++; const l=expected==='\n'?'enter':expected==='\t'?'tab':expected===' '?'space':expected; mistakeMap[l]=(mistakeMap[l]||0)+1; }
   const el=charEls[inputIdx];
   el.classList.remove('cur','hl-k','hl-b','hl-s','hl-c','hl-n','hl-p');
@@ -662,10 +682,12 @@ function handleChar(ch) {
   if (inputIdx<charEls.length) charEls[inputIdx].classList.add('cur');
   if (mode!=='time'&&inputIdx>=charEls.length) endTest();
   updateStats();
+  if(showKeyboard) updateLiveKeyboard();
 }
 
 function handleBackspace() {
   if (inputIdx===0) return;
+  lastKey='⌫'; lastKeyCorrect=true;
   inputIdx--;
   const el=charEls[inputIdx];
   el.classList.remove('ok','err','cur');
@@ -673,6 +695,7 @@ function handleBackspace() {
   el.classList.add('cur');
   if (charEls[inputIdx+1]) charEls[inputIdx+1].classList.remove('cur');
   updateProgress(); updateStats();
+  if(showKeyboard) updateLiveKeyboard();
 }
 
 function scrollView() {
@@ -740,6 +763,7 @@ function reset() {
   clearInterval(timerIval); clearInterval(wpmIval);
   timerIval=null; wpmIval=null; startTime=null;
   inputIdx=0; totalKeys=0; errors=0;
+  lastKey=''; lastKeyCorrect=true;
   mistakeMap={}; wpmHistory=[];
   timeLeft=timeSecs[subOpt]||30;
   running=false; finished=false;
@@ -753,6 +777,7 @@ function reset() {
   $('heatmap-wrap').style.display='none';
   $('attr').textContent='';
   if (wpmChart){wpmChart.destroy();wpmChart=null;}
+  if(showKeyboard) updateLiveKeyboard();
 }
 
 // ── Chart ─────────────────────────────────────────────────────────────────────
@@ -777,6 +802,99 @@ function renderChart() {
       }
     }
   });
+}
+
+// ── Live keyboard ─────────────────────────────────────────────────────────
+const LK_ROWS=[
+  ['q','w','e','r','t','y','u','i','o','p'],
+  ['a','s','d','f','g','h','j','k','l'],
+  ['z','x','c','v','b','n','m'],
+];
+function updateLiveKeyboard() {
+  const wrap=$('live-kb-wrap');
+  if(!showKeyboard){wrap.classList.remove('show');return;}
+  wrap.classList.add('show');
+  const kb=$('live-kb'); kb.innerHTML='';
+  LK_ROWS.forEach((row,ri)=>{
+    const r=document.createElement('div'); r.className='lk-row';
+    if(ri===1)r.classList.add('lk-spacer');
+    row.forEach(k=>{
+      const el=document.createElement('div');
+      el.className='lk-key';
+      el.textContent=k;
+      if(k===lastKey.toLowerCase()){
+        el.classList.add(lastKeyCorrect?'correct':'wrong');
+      }
+      kb.appendChild(r);
+    });
+    kb.appendChild(r);
+  });
+  const sr=document.createElement('div'); sr.className='lk-row';
+  const bksp=document.createElement('div');bksp.className='lk-key w1h';bksp.textContent='⌫';
+  if(lastKey==='⌫')bksp.classList.add(lastKeyCorrect?'correct':'wrong');
+  const tab=document.createElement('div');tab.className='lk-key w1h';tab.textContent='⇥';
+  if(lastKey==='\t')tab.classList.add(lastKeyCorrect?'correct':'wrong');
+  const spc=document.createElement('div');spc.className='lk-key spc';spc.textContent='space';
+  if(lastKey===' ')spc.classList.add(lastKeyCorrect?'correct':'wrong');
+  const ret=document.createElement('div');ret.className='lk-key w1h';ret.textContent='↵';
+  if(lastKey==='\n')ret.classList.add(lastKeyCorrect?'correct':'wrong');
+  sr.appendChild(bksp);sr.appendChild(tab);sr.appendChild(spc);sr.appendChild(ret);
+kb.appendChild(sr);
+}
+
+// ── Live keyboard (keydown listener) ───────────────────────────────────────
+function initLiveKeyboard() {
+  const wrap=$('live-kb-wrap');
+  wrap.classList.add('show');
+  const kb=$('live-kb'); kb.innerHTML='';
+  const rows=[
+    ['q','w','e','r','t','y','u','i','o','p'],
+    ['a','s','d','f','g','h','j','k','l'],
+    ['z','x','c','v','b','n','m'],
+  ];
+  rows.forEach((row,ri)=>{
+    const r=document.createElement('div'); r.className='lk-row';
+    if(ri===1)r.classList.add('lk-spacer');
+    row.forEach(k=>{
+      const el=document.createElement('div');
+      el.className='lk-key'; el.dataset.key=k; el.textContent=k;
+      r.appendChild(el);
+    });
+    kb.appendChild(r);
+  });
+  const sr=document.createElement('div'); sr.className='lk-row';
+  const bksp=document.createElement('div');bksp.className='lk-key w1h';bksp.dataset.key='backspace';bksp.textContent='⌫';
+  const tab=document.createElement('div');tab.className='lk-key w1h';tab.dataset.key='tab';tab.textContent='⇥';
+  const spc=document.createElement('div');spc.className='lk-key spc';spc.dataset.key=' ';spc.textContent='space';
+  const ret=document.createElement('div');ret.className='lk-key w1h';ret.dataset.key='enter';ret.textContent='↵';
+  sr.appendChild(bksp);sr.appendChild(tab);sr.appendChild(spc);sr.appendChild(ret);
+  kb.appendChild(sr);
+  // Listeners - note listener on document for early capture
+  document.addEventListener('keydown',e=>{
+    if(!showKeyboard)return;
+    $('live-kb').querySelectorAll('.lk-key').forEach(k=>k.classList.remove('pressed'));
+    const k=e.key.toLowerCase();
+    const key=$('live-kb').querySelector('.lk-key[data-key="'+k+'"]');
+    if(key)key.classList.add('pressed');
+  });
+  document.addEventListener('keyup',e=>{
+    if(!showKeyboard)return;
+    const k=e.key.toLowerCase();
+    const key=$('live-kb').querySelector('.lk-key[data-key="'+k+'"]');
+    if(key)key.classList.remove('pressed');
+  });
+}
+
+// Update show/hide based on state
+function updateLiveKeyboard() {
+  const wrap=$('live-kb-wrap');
+  if(!showKeyboard){
+    wrap.classList.remove('show');return;
+  }
+  if(!$('live-kb').innerHTML){
+    initLiveKeyboard();
+  }
+  wrap.classList.add('show');
 }
 
 // ── Heatmap ───────────────────────────────────────────────────────────────────
@@ -829,17 +947,24 @@ $('btn-again').onclick=newTest;
 $('btn-new').onclick=newTest;
 $('word-display').onclick=focus;
 document.addEventListener('keydown',e=>{
-  if(e.ctrlKey&&e.key==='r'){e.preventDefault();newTest();}
-  if(!finished&&!$('about-overlay').classList.contains('open')) focus();
-});
+  if(e.ctrlKey&&e.key==='r'){e.preventDefault();newTest();return;}
+  if(e.key==='Escape'){
+    e.preventDefault();
+    if(overlay.classList.contains('open')){
+      overlay.classList.remove('open');
+    }else if(!finished){
+      newTest();
+    }
+    return;
+  }
+  if(!finished&&!overlay.classList.contains('open')) focus();
+}, true);
 function focus(){$('capture').focus();}
 
 // About
-const overlay=$('about-overlay');
 $('nav-about').onclick=e=>{e.preventDefault();overlay.classList.add('open');$('capture').blur();};
 $('about-close').onclick=()=>overlay.classList.remove('open');
 overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open');});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open'))overlay.classList.remove('open');});
 
 buildSubRow();
 newTest();
