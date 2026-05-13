@@ -147,8 +147,13 @@ type Model struct {
 	lines   []string
 	offsets []int
 
-	gameState   *GameState
-	profileData ProfileData
+	gameState    *GameState
+	profileData  ProfileData
+	showSidebar  bool
+	settingGoal  bool
+	goalInputStr string
+	sidebarData  TodayData
+	sidebarCfg   AppConfig
 }
 
 func NewModel() Model {
@@ -288,6 +293,65 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.profileData = loadProfileData()
 			m.state = stateProfile
 		}
+		// Ctrl+D toggles the today sidebar (except in game states)
+		if msg.Type == tea.KeyCtrlD && m.state != stateGame && m.state != stateGameOver {
+			m.showSidebar = !m.showSidebar
+			if m.showSidebar {
+				m.sidebarData = LoadTodayData()
+				m.sidebarCfg = LoadConfig()
+				m.settingGoal = false
+				m.goalInputStr = ""
+			}
+			return m, nil
+		}
+		// Sidebar-specific key handling (not during typing)
+		if m.showSidebar && m.state != stateTyping && m.state != stateTimeInput &&
+			m.state != stateConfirmQuit && m.state != stateGame && m.state != stateGameOver {
+			if m.settingGoal {
+				switch msg.Type {
+				case tea.KeyEsc:
+					m.settingGoal = false
+					m.goalInputStr = ""
+					return m, nil
+				case tea.KeyEnter:
+					min := 0
+					for _, ch := range m.goalInputStr {
+						min = min*10 + int(ch-'0')
+					}
+					if min < 1 {
+						min = 1
+					}
+					if min > 480 {
+						min = 480
+					}
+					m.sidebarCfg.DailyGoalMinutes = min
+					SaveConfig(m.sidebarCfg)
+					m.settingGoal = false
+					m.goalInputStr = ""
+					return m, nil
+				case tea.KeyBackspace:
+					if len(m.goalInputStr) > 0 {
+						m.goalInputStr = m.goalInputStr[:len(m.goalInputStr)-1]
+					}
+					return m, nil
+				case tea.KeyRunes:
+					for _, r := range msg.Runes {
+						if r >= '0' && r <= '9' && len(m.goalInputStr) < 3 {
+							m.goalInputStr += string(r)
+						}
+					}
+					return m, nil
+				}
+			} else {
+				for _, r := range msg.Runes {
+					if r == 'g' || r == 'G' {
+						m.settingGoal = true
+						m.goalInputStr = ""
+						return m, nil
+					}
+				}
+			}
+		}
 		switch m.state {
 		case stateMenu:
 			return m.updateMenu(msg)
@@ -328,6 +392,8 @@ func (m Model) goToMenu() Model {
 	next.mode, next.timeLimitIdx, next.langIdx = m.mode, m.timeLimitIdx, m.langIdx
 	next.customTimeSecs = m.customTimeSecs
 	next.focusMode, next.themeIdx, next.showKeys = m.focusMode, m.themeIdx, m.showKeys
+	next.showSidebar, next.sidebarData, next.sidebarCfg = m.showSidebar, m.sidebarData, m.sidebarCfg
+	next.settingGoal, next.goalInputStr = m.settingGoal, m.goalInputStr
 	return next
 }
 
@@ -530,8 +596,13 @@ func (m Model) finishTest() Model {
 	saveScore(ScoreEntry{
 		WPM: m.finalWPM, Accuracy: m.finalAcc,
 		Mode: m.modeKey(), Lang: m.langKey(),
-		Duration: dur, At: time.Now(),
+		Duration: dur, Elapsed: m.elapsed.Seconds(),
+		At: time.Now(),
 	})
+	// Refresh sidebar data if visible
+	if m.showSidebar {
+		m.sidebarData = LoadTodayData()
+	}
 	return m
 }
 
@@ -826,6 +897,23 @@ func (m Model) topMistakes(n int) []mistakeEntry {
 // ── Views ─────────────────────────────────────────────────────────────────────
 
 func (m Model) View() string {
+	// Sidebar reduces available width for main content
+	if m.showSidebar && m.state != stateGame && m.state != stateGameOver {
+		const sidebarW = 30
+		const gap = 2
+		if m.width >= sidebarW+gap+40 {
+			// Clone model with reduced width for main content
+			mainM := m
+			mainM.width = m.width - sidebarW - gap
+			mainView := mainM.renderMainView()
+			sidebar := renderTodaySidebar(sidebarW, m.sidebarData, m.sidebarCfg, m.settingGoal, m.goalInputStr, m.height)
+			return lipgloss.JoinHorizontal(lipgloss.Top, mainView, strings.Repeat(" ", gap), sidebar)
+		}
+	}
+	return m.renderMainView()
+}
+
+func (m Model) renderMainView() string {
 	switch m.state {
 	case stateMenu:
 		return m.viewMenu()

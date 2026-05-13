@@ -16,6 +16,7 @@ type ScoreEntry struct {
 	Mode     string    `json:"mode"`
 	Lang     string    `json:"lang,omitempty"`
 	Duration int       `json:"duration_seconds"`
+	Elapsed  float64   `json:"elapsed_seconds,omitempty"` // actual test duration
 	At       time.Time `json:"at"`
 }
 
@@ -109,7 +110,7 @@ func exportCSV() (string, error) {
 	defer f.Close()
 
 	w := csv.NewWriter(f)
-	_ = w.Write([]string{"wpm", "accuracy", "mode", "lang", "duration_seconds", "at"})
+	_ = w.Write([]string{"wpm", "accuracy", "mode", "lang", "duration_seconds", "elapsed_seconds", "at"})
 	for _, e := range sb.Entries {
 		_ = w.Write([]string{
 			fmt.Sprintf("%.1f", e.WPM),
@@ -117,9 +118,97 @@ func exportCSV() (string, error) {
 			e.Mode,
 			e.Lang,
 			fmt.Sprintf("%d", e.Duration),
+			fmt.Sprintf("%.1f", e.Elapsed),
 			e.At.Format(time.RFC3339),
 		})
 	}
 	w.Flush()
 	return path, w.Error()
+}
+
+// ── Config ─────────────────────────────────────────────────────────────────────
+
+type AppConfig struct {
+	DailyGoalMinutes int `json:"daily_goal_minutes"`
+}
+
+func configPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".typist", "config.json")
+}
+
+func LoadConfig() AppConfig {
+	data, err := os.ReadFile(configPath())
+	if err != nil {
+		return AppConfig{DailyGoalMinutes: 30}
+	}
+	var cfg AppConfig
+	_ = json.Unmarshal(data, &cfg)
+	if cfg.DailyGoalMinutes < 1 {
+		cfg.DailyGoalMinutes = 30
+	}
+	return cfg
+}
+
+func SaveConfig(cfg AppConfig) {
+	path := configPath()
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	data, _ := json.MarshalIndent(cfg, "", "  ")
+	_ = os.WriteFile(path, data, 0644)
+}
+
+// ── Today data ─────────────────────────────────────────────────────────────────
+
+type TodayData struct {
+	Sessions     []ScoreEntry
+	Count        int
+	TotalElapsed float64 // seconds
+	AvgWPM       float64
+	AvgAcc       float64
+	BestWPM      float64
+	BestAcc      float64
+}
+
+func LoadTodayData() TodayData {
+	entries := recentSessions(500)
+	if len(entries) == 0 {
+		return TodayData{}
+	}
+
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	var today []ScoreEntry
+	for _, e := range entries {
+		if !e.At.Before(todayStart) {
+			today = append(today, e)
+		} else {
+			break // entries are newest-first, so we can stop
+		}
+	}
+
+	if len(today) == 0 {
+		return TodayData{}
+	}
+
+	td := TodayData{
+		Sessions: today,
+		Count:    len(today),
+	}
+
+	wpmSum := 0.0
+	accSum := 0.0
+	for _, e := range today {
+		td.TotalElapsed += e.Elapsed
+		wpmSum += e.WPM
+		accSum += e.Accuracy
+		if e.WPM > td.BestWPM {
+			td.BestWPM = e.WPM
+			td.BestAcc = e.Accuracy
+		}
+	}
+	td.AvgWPM = wpmSum / float64(len(today))
+	td.AvgAcc = accSum / float64(len(today))
+
+	return td
 }
