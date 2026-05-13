@@ -44,7 +44,6 @@ var modeCount = len(modeNames)
 
 const (
 	numWords     = 30
-	lineWidth    = 65
 	visLines     = 3
 	histPageSize = 12
 	sparkWidth   = 32 // WPM sparkline bar count
@@ -187,7 +186,7 @@ func (m *Model) loadText() {
 	if m.mode == modeCode {
 		m.lines, m.offsets = wrapCodeLines(text)
 	} else {
-		m.lines, m.offsets = wrapIntoLines(text, lineWidth)
+		m.lines, m.offsets = wrapIntoLines(text, m.effectiveLineWidth())
 	}
 	m.input = nil
 	m.totalKeys = 0
@@ -219,6 +218,27 @@ func (m Model) langKey() string {
 
 // activeDuration returns the effective timer duration in seconds.
 // Returns 0 for non-time modes.
+func (m Model) effectiveLineWidth() int {
+	w := m.width - 8
+	if w > 65 {
+		return 65
+	}
+	if w < 20 {
+		return 20
+	}
+	return w
+}
+
+func (m Model) effectiveVisLines() int {
+	if m.height < 12 {
+		return 1
+	}
+	if m.height < 18 {
+		return 2
+	}
+	return 3
+}
+
 func (m Model) activeDuration() int {
 	if m.mode != modeTime {
 		return 0
@@ -443,7 +463,7 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyEnter:
 		if m.mode == modeGame {
-			m.gameState = newGameState()
+			m.gameState = newGameState(m.width, m.height)
 			m.state = stateGame
 			return m, gameTickCmd()
 		}
@@ -902,12 +922,19 @@ func (m Model) View() string {
 		const sidebarW = 30
 		const gap = 2
 		if m.width >= sidebarW+gap+40 {
-			// Clone model with reduced width for main content
+			side := renderTodaySidebar(sidebarW, m.sidebarData, m.sidebarCfg, m.settingGoal, m.goalInputStr, m.height)
+			if m.width < 90 {
+				// Stacked: sidebar below main content
+				mainView := m.renderMainView()
+				div := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", m.width))
+				stacked := lipgloss.JoinVertical(lipgloss.Left, mainView, "", div, "", side)
+				return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, stacked)
+			}
+			// Side-by-side: main content at reduced width, sidebar to the right
 			mainM := m
 			mainM.width = m.width - sidebarW - gap
 			mainView := mainM.renderMainView()
-			sidebar := renderTodaySidebar(sidebarW, m.sidebarData, m.sidebarCfg, m.settingGoal, m.goalInputStr, m.height)
-			return lipgloss.JoinHorizontal(lipgloss.Top, mainView, strings.Repeat(" ", gap), sidebar)
+			return lipgloss.JoinHorizontal(lipgloss.Top, mainView, strings.Repeat(" ", gap), side)
 		}
 	}
 	return m.renderMainView()
@@ -1036,16 +1063,17 @@ func (m Model) viewTyping() string {
 			cursorLine = i
 		}
 	}
+	vis := m.effectiveVisLines()
 	startLine := cursorLine
-	if startLine+visLines > len(m.lines) {
-		startLine = len(m.lines) - visLines
+	if startLine+vis > len(m.lines) {
+		startLine = len(m.lines) - vis
 	}
 	if startLine < 0 {
 		startLine = 0
 	}
 
 	var renderedLines []string
-	for li := startLine; li < startLine+visLines && li < len(m.lines); li++ {
+	for li := startLine; li < startLine+vis && li < len(m.lines); li++ {
 		lineStart := m.offsets[li]
 		lineRunes := []rune(m.lines[li])
 		var sb strings.Builder
@@ -1175,7 +1203,13 @@ func (m Model) viewResults() string {
 	// Keep badges off the column width — ANSI codes confuse lipgloss Width().
 	// Render the four numbers in fixed-width columns, then badges on a separate
 	// line so nothing gets pushed out of alignment.
-	colW := 10
+	colW := (m.width - 32) / 4
+	if colW < 8 {
+		colW = 8
+	}
+	if colW > 14 {
+		colW = 14
+	}
 	mkCol := func(val, label string) string {
 		return lipgloss.NewStyle().Width(colW).Render(
 			lipgloss.JoinVertical(lipgloss.Left, val, subtleStyle.Render(label)),
@@ -1209,13 +1243,13 @@ func (m Model) viewResults() string {
 	}
 
 	// ── Divider ───────────────────────────────────────────────────────────
-	// Use terminal width minus margins for the chart; min 20, max 120
-	divW := m.width - 20
-	if divW < 20 {
-		divW = 20
+	// Use terminal width minus margins for the chart
+	divW := m.width - 8
+	if divW < 10 {
+		divW = 10
 	}
-	if divW > 120 {
-		divW = 120
+	if divW > m.width {
+		divW = m.width
 	}
 	div := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", divW))
 
@@ -1285,9 +1319,18 @@ func (m Model) viewResults() string {
 	)
 
 	spacer := strings.Repeat(" ", 4)
-	metricsRow := lipgloss.JoinHorizontal(lipgloss.Top,
-		rawBlock, spacer, charBlock, spacer, consBlock, spacer, errBlock,
-	)
+	var metricsRow string
+	if m.width < 80 {
+		metricsRow = lipgloss.JoinVertical(lipgloss.Left,
+			lipgloss.JoinHorizontal(lipgloss.Top, rawBlock, spacer, charBlock),
+			"",
+			lipgloss.JoinHorizontal(lipgloss.Top, consBlock, spacer, errBlock),
+		)
+	} else {
+		metricsRow = lipgloss.JoinHorizontal(lipgloss.Top,
+			rawBlock, spacer, charBlock, spacer, consBlock, spacer, errBlock,
+		)
+	}
 
 	// ── Top mistakes detail ───────────────────────────────────────────────
 	var mistakesLine string
@@ -1378,7 +1421,13 @@ func (m Model) renderProgress() string {
 	if done > total {
 		done = total
 	}
-	width := 50
+	width := m.width - 12
+	if width < 10 {
+		width = 10
+	}
+	if width > 50 {
+		width = 50
+	}
 	filled := int(float64(done) / float64(total) * float64(width))
 	pct := int(float64(done) / float64(total) * 100)
 
@@ -1590,10 +1639,14 @@ func (m Model) renderKeyboard() []string {
 	}
 
 	// Special keys
+	spcLabel := "      space      "
+	if m.width < 60 {
+		spcLabel = " spc "
+	}
 	spRow := lipgloss.JoinHorizontal(lipgloss.Top,
 		renderKey("⌫", 0),
 		renderKey("tab", '\t'),
-		renderKey("      space      ", countFor(' ')),
+		renderKey(spcLabel, countFor(' ')),
 		renderKey("↵", '\n'),
 	)
 	rows = append(rows, spRow)
@@ -1720,18 +1773,30 @@ func (m Model) viewHistory() string {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, body)
 	}
 
+	// Responsive column widths — scale if narrow
+	cWpm, cAcc, cMode, cLang, cDate := 8, 8, 12, 8, 14
+	totalW := cWpm + cAcc + cMode + cLang + cDate
+	if m.width < totalW+4 {
+		cWpm = 6
+		cAcc = 6
+		cMode = 8
+		cLang = 6
+		cDate = 8
+	}
+
 	col := func(s lipgloss.Style, w int, text string) string {
 		return lipgloss.NewStyle().Width(w).Inline(true).Render(s.Render(text))
 	}
 	dimLabel := lipgloss.NewStyle().Foreground(activeTheme.surface2)
 	header := lipgloss.JoinHorizontal(lipgloss.Top,
-		col(dimLabel, 8, "wpm"),
-		col(dimLabel, 8, "acc%"),
-		col(dimLabel, 12, "mode"),
-		col(dimLabel, 8, "lang"),
-		col(dimLabel, 14, "date"),
+		col(dimLabel, cWpm, "wpm"),
+		col(dimLabel, cAcc, "acc%"),
+		col(dimLabel, cMode, "mode"),
+		col(dimLabel, cLang, "lang"),
+		col(dimLabel, cDate, "date"),
 	)
-	divider := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", 52))
+	divW := cWpm + cAcc + cMode + cLang + cDate + 4
+	divider := lipgloss.NewStyle().Foreground(activeTheme.surface0).Render(strings.Repeat("─", divW))
 
 	end := m.histOffset + histPageSize
 	if end > len(m.histData) {
@@ -1748,17 +1813,21 @@ func (m Model) viewHistory() string {
 		if lang == "" {
 			lang = "—"
 		}
+		dateFmt := "Jan 02 15:04"
+		if cDate <= 8 {
+			dateFmt = "01/02"
+		}
 		wpmS := lipgloss.NewStyle().Foreground(activeTheme.wpm).Bold(true)
 		accS := lipgloss.NewStyle().Foreground(activeTheme.acc)
 		modeS := lipgloss.NewStyle().Foreground(activeTheme.text)
 		langS := lipgloss.NewStyle().Foreground(activeTheme.timer)
 		dateS := lipgloss.NewStyle().Foreground(activeTheme.overlay0)
 		row := lipgloss.JoinHorizontal(lipgloss.Top,
-			col(wpmS, 8, fmt.Sprintf("%.0f", e.WPM)),
-			col(accS, 8, fmt.Sprintf("%.1f%%", e.Accuracy)),
-			col(modeS, 12, modeLabel),
-			col(langS, 8, lang),
-			col(dateS, 14, e.At.Format("Jan 02 15:04")),
+			col(wpmS, cWpm, fmt.Sprintf("%.0f", e.WPM)),
+			col(accS, cAcc, fmt.Sprintf("%.1f%%", e.Accuracy)),
+			col(modeS, cMode, modeLabel),
+			col(langS, cLang, lang),
+			col(dateS, cDate, e.At.Format(dateFmt)),
 		)
 		rows = append(rows, row)
 	}
@@ -1899,10 +1968,14 @@ func (m Model) renderLiveKeyboard() string {
 		}(),
 		"   ",
 		func() string {
-			if spcActive {
-				return specialActive.Render("      space      ")
+			spcLabel := "      space      "
+			if m.width < 60 {
+				spcLabel = " spc "
 			}
-			return restStyle.Render("      space      ")
+			if spcActive {
+				return specialActive.Render(spcLabel)
+			}
+			return restStyle.Render(spcLabel)
 		}(),
 		"  ",
 		func() string {

@@ -1,6 +1,5 @@
 package main
 
-
 import (
 	"fmt"
 	"math"
@@ -43,6 +42,8 @@ type Projectile struct {
 }
 
 type GameState struct {
+	gW          int // field width (dynamic)
+	gH          int // field height (dynamic)
 	enemies     []Enemy
 	projectiles []Projectile
 	score       int
@@ -73,12 +74,28 @@ func gameTickCmd() tea.Cmd {
 
 // Init / reset
 
-func newGameState() *GameState {
+func newGameState(width, height int) *GameState {
+	gW := 70
+	if width > 0 && width-8 < gW {
+		gW = width - 8
+	}
+	if gW < 40 {
+		gW = 40
+	}
+	gH := 30
+	if height > 0 && height-8 < gH {
+		gH = height - 8
+	}
+	if gH < 15 {
+		gH = 15
+	}
 	gs := &GameState{
+		gW:     gW,
+		gH:     gH,
 		lives:  gLives,
 		level:  1,
 		locked: -1,
-		speed:  0.25, // reduced from 0.4 for slower initial speed
+		speed:  0.25,
 	}
 	gs.startTime = time.Now()
 	// Seed with 2 enemies so field isn't empty
@@ -113,7 +130,7 @@ func (gs *GameState) spawnEnemy() {
 	}
 
 	// Random x position keeping word inside field
-	maxX := gW - len(word) - 4
+	maxX := gs.gW - len(word) - 4
 	if maxX < 2 {
 		maxX = 2
 	}
@@ -157,7 +174,7 @@ func (gs *GameState) tick() {
 		gs.enemies[i].y += spd
 
 		// Enemy reached the bottom — lose a life
-		if gs.enemies[i].y >= float64(gH-5) {
+		if gs.enemies[i].y >= float64(gs.gH-5) {
 			gs.lives--
 			gs.enemies[i].alive = false
 			if gs.locked == gs.enemies[i].id {
@@ -243,8 +260,8 @@ func (gs *GameState) handleGameKey(ch rune) {
 
 	// Fire a projectile
 	// Player is centered at bottom; enemy text starts at e.x
-	px := float64(gW / 2)
-	py := float64(gH - 4)
+	px := float64(gs.gW / 2)
+	py := float64(gs.gH - 4)
 	tx := float64(e.x) + float64(e.progress)
 	ty := e.y + 1
 	gs.projectiles = append(gs.projectiles, Projectile{
@@ -302,19 +319,20 @@ func (gs *GameState) render(width, height int) string {
 		style lipgloss.Style
 	}
 
+	dgW, dgH := gs.gW, gs.gH
 	dim := lipgloss.NewStyle().Foreground(activeTheme.surface1)
 	blank := cell{' ', dim}
 
-	grid := make([][]cell, gH)
+	grid := make([][]cell, dgH)
 	for i := range grid {
-		grid[i] = make([]cell, gW)
+		grid[i] = make([]cell, dgW)
 		for j := range grid[i] {
 			grid[i][j] = blank
 		}
 	}
 
 	paint := func(y, x int, ch rune, s lipgloss.Style) {
-		if y >= 0 && y < gH && x >= 0 && x < gW {
+		if y >= 0 && y < dgH && x >= 0 && x < dgW {
 			grid[y][x] = cell{ch, s}
 		}
 	}
@@ -332,7 +350,7 @@ func (gs *GameState) render(width, height int) string {
 		{8, 18}, {30, 17}, {65, 9}, {45, 19},
 	}
 	for _, st := range stars {
-		if st.y < gH-5 {
+		if st.y < dgH-5 {
 			ch := '·'
 			if (st.x+st.y+gs.tickN/4)%7 == 0 {
 				ch = '✦'
@@ -433,8 +451,8 @@ func (gs *GameState) render(width, height int) string {
 	}
 
 	// Player ship at bottom
-	playerX := gW/2 - 4
-	playerY := gH - 4
+	playerX := dgW/2 - 4
+	playerY := dgH - 4
 	pStyle := lipgloss.NewStyle().Foreground(activeTheme.green).Bold(true)
 	// paint(playerY-1, playerX+4,'▲', pStyle)
 	paintStr(playerY, playerX, "╔╪╗", pStyle)
@@ -454,7 +472,7 @@ func (gs *GameState) render(width, height int) string {
 
 	// Floor line
 	floorStyle := lipgloss.NewStyle().Foreground(activeTheme.surface0)
-	paintStr(gH-5, 0, strings.Repeat("─", gW), floorStyle)
+	paintStr(dgH-5, 0, strings.Repeat("─", dgW), floorStyle)
 
 	// Render grid to string
 	var sb strings.Builder
@@ -462,12 +480,12 @@ func (gs *GameState) render(width, height int) string {
 		for _, c := range row {
 			sb.WriteString(c.style.Render(string(c.ch)))
 		}
-		if y < gH-1 {
+		if y < dgH-1 {
 			sb.WriteRune('\n')
 		}
 	}
 
-	// HUD: lives, score, level 
+	// HUD: lives, score, level
 	hearts := ""
 	for i := 0; i < gLives; i++ {
 		if i < gs.lives {
@@ -524,7 +542,7 @@ func (gs *GameState) renderGameOver(width, height int) string {
 
 	// ASCII game over art
 	art := lipgloss.NewStyle().Foreground(activeTheme.red).Bold(true).Render(
-		    "╔═══════════════════╗\n" +
+		"╔═══════════════════╗\n" +
 			"║ G A M E  O V E R  ║\n" +
 			"╚═══════════════════╝",
 	)
@@ -586,7 +604,7 @@ func (m Model) updateGameOver(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tea.KeyEnter:
 		// Restart game
-		m.gameState = newGameState()
+		m.gameState = newGameState(m.width, m.height)
 		m.state = stateGame
 		return m, gameTickCmd()
 	case tea.KeyRunes:
@@ -595,7 +613,7 @@ func (m Model) updateGameOver(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			next := m.goToMenu()
 			return next, nil
 		case "r", "R":
-			m.gameState = newGameState()
+			m.gameState = newGameState(m.width, m.height)
 			m.state = stateGame
 			return m, gameTickCmd()
 		}
