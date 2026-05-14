@@ -129,7 +129,11 @@ func exportCSV() (string, error) {
 // ── Config ─────────────────────────────────────────────────────────────────────
 
 type AppConfig struct {
-	DailyGoalMinutes int `json:"daily_goal_minutes"`
+	DailyGoalMinutes int  `json:"daily_goal_minutes"`
+	TargetWPM        int  `json:"target_wpm"`
+	WordCount        int  `json:"word_count"`
+	BlindDefault     bool `json:"blind_default"`
+	FocusDefault     bool `json:"focus_default"`
 }
 
 func configPath() string {
@@ -140,12 +144,21 @@ func configPath() string {
 func LoadConfig() AppConfig {
 	data, err := os.ReadFile(configPath())
 	if err != nil {
-		return AppConfig{DailyGoalMinutes: 30}
+		return AppConfig{DailyGoalMinutes: 30, WordCount: 30}
 	}
 	var cfg AppConfig
 	_ = json.Unmarshal(data, &cfg)
 	if cfg.DailyGoalMinutes < 1 {
 		cfg.DailyGoalMinutes = 30
+	}
+	if cfg.WordCount < 10 {
+		cfg.WordCount = 30
+	}
+	if cfg.WordCount > 200 {
+		cfg.WordCount = 200
+	}
+	if cfg.TargetWPM < 0 {
+		cfg.TargetWPM = 0
 	}
 	return cfg
 }

@@ -25,6 +25,7 @@ const (
 	stateGame        // game mode active
 	stateGameOver    // game over screen
 	stateProfile     // profile dashboard
+	stateSettings    // settings screen
 )
 
 type testMode int
@@ -153,9 +154,14 @@ type Model struct {
 	goalInputStr string
 	sidebarData  TodayData
 	sidebarCfg   AppConfig
+
+	settingsRow  int
+	settingsEdit bool
+	settingsBuf  string
 }
 
 func NewModel() Model {
+	cfg := LoadConfig()
 	return Model{
 		state:        stateMenu,
 		mode:         modeWords,
@@ -163,14 +169,22 @@ func NewModel() Model {
 		langIdx:      0,
 		mistakeMap:   make(map[rune]int),
 		themeIdx:     0,
+		sidebarCfg:   cfg,
 	}
 }
 
 func (m *Model) loadText() {
 	var text string
+	wordCount := m.sidebarCfg.WordCount
+	if wordCount < 10 {
+		wordCount = 10
+	}
+	if wordCount > 200 {
+		wordCount = 200
+	}
 	switch m.mode {
 	case modeWords:
-		text = generateWords(numWords)
+		text = generateWords(wordCount)
 	case modeTime:
 		text = generateWords(200)
 	case modeQuote:
@@ -197,6 +211,8 @@ func (m *Model) loadText() {
 	m.started = false
 	m.elapsed = 0
 	m.exportMsg = ""
+	m.blindMode = m.sidebarCfg.BlindDefault
+	m.focusMode = m.sidebarCfg.FocusDefault
 	if m.mode == modeTime {
 		m.timeLeft = m.activeDuration()
 	}
@@ -313,6 +329,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.profileData = loadProfileData()
 			m.state = stateProfile
 		}
+		// Ctrl+E opens settings from any screen (except when already in settings)
+		if msg.Type == tea.KeyCtrlE && m.state != stateSettings {
+			m.sidebarCfg = LoadConfig()
+			m.settingsRow = 0
+			m.settingsEdit = false
+			m.settingsBuf = ""
+			m.prevState = m.state
+			m.state = stateSettings
+		}
 		// Ctrl+D toggles the today sidebar (except in game states)
 		if msg.Type == tea.KeyCtrlD && m.state != stateGame && m.state != stateGameOver {
 			m.showSidebar = !m.showSidebar
@@ -326,7 +351,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Sidebar-specific key handling (not during typing)
 		if m.showSidebar && m.state != stateTyping && m.state != stateTimeInput &&
-			m.state != stateConfirmQuit && m.state != stateGame && m.state != stateGameOver {
+			m.state != stateConfirmQuit && m.state != stateGame && m.state != stateGameOver &&
+			m.state != stateSettings {
 			if m.settingGoal {
 				switch msg.Type {
 				case tea.KeyEsc:
@@ -391,6 +417,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateGameOver(msg)
 		case stateProfile:
 			return m.updateProfile(msg)
+		case stateSettings:
+			return m.updateSettings(msg)
 		}
 	}
 	return m, nil
@@ -414,6 +442,7 @@ func (m Model) goToMenu() Model {
 	next.focusMode, next.themeIdx, next.showKeys = m.focusMode, m.themeIdx, m.showKeys
 	next.showSidebar, next.sidebarData, next.sidebarCfg = m.showSidebar, m.sidebarData, m.sidebarCfg
 	next.settingGoal, next.goalInputStr = m.settingGoal, m.goalInputStr
+	next.settingsRow, next.settingsEdit, next.settingsBuf = m.settingsRow, m.settingsEdit, m.settingsBuf
 	return next
 }
 
@@ -758,6 +787,148 @@ func (m Model) updateTimeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+type settingItem struct {
+	label string
+	kind  string // "number" or "bool"
+}
+
+var settingsList = []settingItem{
+	{label: "target wpm", kind: "number"},
+	{label: "words per test", kind: "number"},
+	{label: "blind mode", kind: "bool"},
+	{label: "focus mode", kind: "bool"},
+}
+
+func settingValue(cfg AppConfig, idx int) int {
+	switch idx {
+	case 0:
+		return cfg.TargetWPM
+	case 1:
+		return cfg.WordCount
+	case 2:
+		if cfg.BlindDefault {
+			return 1
+		}
+	case 3:
+		if cfg.FocusDefault {
+			return 1
+		}
+	}
+	return 0
+}
+
+func settingDisplay(item settingItem, val int, editing bool, buf string) string {
+	switch item.kind {
+	case "bool":
+		if val == 1 {
+			return "on"
+		}
+		return "off"
+	case "number":
+		if editing {
+			if buf == "" {
+				return " "
+			}
+			return buf
+		}
+		if val == 0 && item.label == "target wpm" {
+			return "off"
+		}
+		return fmt.Sprintf("%d", val)
+	}
+	return ""
+}
+
+func (m Model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.settingsEdit {
+		item := settingsList[m.settingsRow]
+		switch msg.Type {
+		case tea.KeyCtrlC:
+			return m, tea.Quit
+		case tea.KeyEsc:
+			m.settingsEdit = false
+			m.settingsBuf = ""
+			return m, nil
+		case tea.KeyEnter:
+			val := 0
+			for _, ch := range m.settingsBuf {
+				val = val*10 + int(ch-'0')
+			}
+			switch m.settingsRow {
+			case 0:
+				if val > 250 {
+					val = 250
+				}
+				m.sidebarCfg.TargetWPM = val
+			case 1:
+				if val < 10 {
+					val = 10
+				}
+				if val > 200 {
+					val = 200
+				}
+				m.sidebarCfg.WordCount = val
+			}
+			SaveConfig(m.sidebarCfg)
+			m.settingsEdit = false
+			m.settingsBuf = ""
+			return m, nil
+		case tea.KeyBackspace:
+			if len(m.settingsBuf) > 0 {
+				m.settingsBuf = m.settingsBuf[:len(m.settingsBuf)-1]
+			}
+			return m, nil
+		case tea.KeyRunes:
+			if item.kind == "number" {
+				for _, r := range msg.Runes {
+					if r >= '0' && r <= '9' && len(m.settingsBuf) < 3 {
+						m.settingsBuf += string(r)
+					}
+				}
+			}
+			return m, nil
+		}
+		return m, nil
+	}
+	switch msg.Type {
+	case tea.KeyCtrlC:
+		return m, tea.Quit
+	case tea.KeyEsc:
+		m.state = stateMenu
+		m.settingsRow = 0
+		m.settingsBuf = ""
+		m.settingsEdit = false
+		return m, nil
+	case tea.KeyUp:
+		if m.settingsRow > 0 {
+			m.settingsRow--
+		}
+	case tea.KeyDown:
+		if m.settingsRow < len(settingsList)-1 {
+			m.settingsRow++
+		}
+	case tea.KeyEnter:
+		item := settingsList[m.settingsRow]
+		switch item.kind {
+		case "bool":
+			switch m.settingsRow {
+			case 2:
+				m.sidebarCfg.BlindDefault = !m.sidebarCfg.BlindDefault
+			case 3:
+				m.sidebarCfg.FocusDefault = !m.sidebarCfg.FocusDefault
+			}
+			SaveConfig(m.sidebarCfg)
+		case "number":
+			m.settingsEdit = true
+			m.settingsBuf = ""
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
 // ── History ───────────────────────────────────────────────────────────────────
 
 func (m Model) updateHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -918,7 +1089,7 @@ func (m Model) topMistakes(n int) []mistakeEntry {
 
 func (m Model) View() string {
 	// Sidebar reduces available width for main content
-	if m.showSidebar && m.state != stateGame && m.state != stateGameOver {
+	if m.showSidebar && m.state != stateGame && m.state != stateGameOver && m.state != stateSettings {
 		const sidebarW = 30
 		const gap = 2
 		if m.width >= sidebarW+gap+40 {
@@ -964,6 +1135,8 @@ func (m Model) renderMainView() string {
 		}
 	case stateProfile:
 		return viewProfile(m.profileData, m.width, m.height)
+	case stateSettings:
+		return m.viewSettings()
 	}
 	return ""
 }
@@ -1046,9 +1219,13 @@ func (m Model) viewMenu() string {
 	profileLabel := lipgloss.NewStyle().Foreground(activeTheme.surface2).
 		Render("ctrl+o  profile")
 
+	// Settings indicator
+	settingsLabel := lipgloss.NewStyle().Foreground(activeTheme.surface2).
+		Render("ctrl+e  settings")
+
 	body := lipgloss.JoinVertical(lipgloss.Center,
 		logo, "", tagline, "", "", sectionLabel, "",
-		modeRow+subRow, "", "", hint, "", themeLabel, profileLabel,
+		modeRow+subRow, "", "", hint, "", themeLabel, profileLabel, settingsLabel,
 	)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, body)
 }
@@ -1145,6 +1322,11 @@ func (m Model) viewTyping() string {
 	if m.mode == modeCode {
 		langTag = "   " + subtleStyle.Render(langKeys[m.langIdx])
 	}
+	var targetTag string
+	if m.sidebarCfg.TargetWPM > 0 {
+		targetTag = "   " + lipgloss.NewStyle().Foreground(activeTheme.surface2).
+			Render(fmt.Sprintf("target %d", m.sidebarCfg.TargetWPM))
+	}
 
 	// Progress bar — filled with thin unicode blocks
 	progress := m.renderProgress()
@@ -1157,7 +1339,7 @@ func (m Model) viewTyping() string {
 		accNum := accStyle.Render(fmt.Sprintf("%.0f", m.calcAccuracy()))
 		accLabel := subtleStyle.Render("% acc")
 		statsLeft := lipgloss.JoinHorizontal(lipgloss.Top, wpmNum, wpmLabel)
-		statsRight := lipgloss.JoinHorizontal(lipgloss.Top, accNum, accLabel, timerPart, langTag, blindTag)
+		statsRight := lipgloss.JoinHorizontal(lipgloss.Top, accNum, accLabel, timerPart, langTag, blindTag, targetTag)
 		spacer := strings.Repeat(" ", 4)
 		stats := lipgloss.JoinHorizontal(lipgloss.Top, statsLeft, spacer, statsRight)
 		parts = append(parts, stats, "")
@@ -1225,6 +1407,17 @@ func (m Model) viewResults() string {
 	var badgeParts []string
 	if m.isPB {
 		badgeParts = append(badgeParts, pbStyle.Render(" new best! "))
+	}
+	if tgt := m.sidebarCfg.TargetWPM; tgt > 0 {
+		if m.finalWPM >= float64(tgt) {
+			badgeParts = append(badgeParts,
+				lipgloss.NewStyle().Foreground(activeTheme.green).Bold(true).
+					Render(fmt.Sprintf("target %d wpm  ✓", tgt)))
+		} else {
+			badgeParts = append(badgeParts,
+				lipgloss.NewStyle().Foreground(activeTheme.red).Bold(true).
+					Render(fmt.Sprintf("target %d wpm  ✗  (%.0f below)", tgt, float64(tgt)-m.finalWPM)))
+		}
 	}
 	if delta, ok := m.deltaFromLast(dur); ok {
 		sign := "+"
@@ -1757,6 +1950,57 @@ func (m Model) viewTimeInput() string {
 		title, "", sub, "", inputBox, convLine, "", hint,
 	)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, body)
+}
+
+// ── Settings view ─────────────────────────────────────────────────────────────
+
+func (m Model) viewSettings() string {
+	title := titleStyle.Render("settings")
+
+	labelW := 18
+	valW := 8
+
+	var rows []string
+	for i, item := range settingsList {
+		val := settingValue(m.sidebarCfg, i)
+		disp := settingDisplay(item, val, m.settingsEdit && m.settingsRow == i, m.settingsBuf)
+
+		selected := i == m.settingsRow && !m.settingsEdit
+		style := func(s string) string {
+			if selected {
+				return selectedStyle.Render(s)
+			}
+			return subtleStyle.Render(s)
+		}
+
+		label := lipgloss.NewStyle().Width(labelW).Inline(true).Render(style(item.label))
+		var valStr string
+		if m.settingsEdit && m.settingsRow == i {
+			valStr = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(activeTheme.mauve).
+				Padding(0, 1).
+				Render(wpmStyle.Render(disp) +
+					lipgloss.NewStyle().Foreground(activeTheme.mauve).Render("█"))
+		} else {
+			valStr = lipgloss.NewStyle().Width(valW).Align(lipgloss.Center).Render(style(disp))
+		}
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, label, " ", valStr))
+	}
+
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+
+	var hint string
+	if m.settingsEdit {
+		hint = hintStyle.Render("digits  ·  backspace  ·  enter confirm  ·  esc cancel")
+	} else {
+		hint = hintStyle.Render("↑ ↓  navigate  ·  enter edit/toggle  ·  esc back")
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center,
+		title, "", body, "", hint,
+	)
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
 // ── History view ──────────────────────────────────────────────────────────────
