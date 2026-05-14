@@ -175,16 +175,9 @@ func NewModel() Model {
 
 func (m *Model) loadText() {
 	var text string
-	wordCount := m.sidebarCfg.WordCount
-	if wordCount < 10 {
-		wordCount = 10
-	}
-	if wordCount > 200 {
-		wordCount = 200
-	}
 	switch m.mode {
 	case modeWords:
-		text = generateWords(wordCount)
+		text = generateWords(m.sidebarCfg.WordCount)
 	case modeTime:
 		text = generateWords(200)
 	case modeQuote:
@@ -789,34 +782,26 @@ func (m Model) updateTimeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+type settingID int
+
+const (
+	settingTargetWPM settingID = iota
+	settingWordCount
+	settingBlindDefault
+	settingFocusDefault
+)
+
 type settingItem struct {
+	id    settingID
 	label string
 	kind  string // "number" or "bool"
 }
 
 var settingsList = []settingItem{
-	{label: "target wpm", kind: "number"},
-	{label: "words per test", kind: "number"},
-	{label: "blind mode", kind: "bool"},
-	{label: "focus mode", kind: "bool"},
-}
-
-func settingValue(cfg AppConfig, idx int) int {
-	switch idx {
-	case 0:
-		return cfg.TargetWPM
-	case 1:
-		return cfg.WordCount
-	case 2:
-		if cfg.BlindDefault {
-			return 1
-		}
-	case 3:
-		if cfg.FocusDefault {
-			return 1
-		}
-	}
-	return 0
+	{id: settingTargetWPM, label: "target wpm", kind: "number"},
+	{id: settingWordCount, label: "words per test", kind: "number"},
+	{id: settingBlindDefault, label: "blind mode", kind: "bool"},
+	{id: settingFocusDefault, label: "focus mode", kind: "bool"},
 }
 
 func settingDisplay(item settingItem, val int, editing bool, buf string) string {
@@ -833,7 +818,7 @@ func settingDisplay(item settingItem, val int, editing bool, buf string) string 
 			}
 			return buf
 		}
-		if val == 0 && item.label == "target wpm" {
+		if val == 0 && item.id == settingTargetWPM {
 			return "off"
 		}
 		return fmt.Sprintf("%d", val)
@@ -847,22 +832,29 @@ func (m Model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return m, tea.Quit
+		case tea.KeyCtrlG:
+			next := m.goToMenu()
+			return next, nil
 		case tea.KeyEsc:
 			m.settingsEdit = false
 			m.settingsBuf = ""
 			return m, nil
 		case tea.KeyEnter:
+			if m.settingsBuf == "" {
+				m.settingsEdit = false
+				return m, nil
+			}
 			val := 0
 			for _, ch := range m.settingsBuf {
 				val = val*10 + int(ch-'0')
 			}
-			switch m.settingsRow {
-			case 0:
+			switch item.id {
+			case settingTargetWPM:
 				if val > 250 {
 					val = 250
 				}
 				m.sidebarCfg.TargetWPM = val
-			case 1:
+			case settingWordCount:
 				if val < 10 {
 					val = 10
 				}
@@ -895,6 +887,18 @@ func (m Model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC:
 		return m, tea.Quit
+	case tea.KeyCtrlG:
+		next := m.goToMenu()
+		return next, nil
+	case tea.KeyCtrlE:
+		m.state = stateMenu
+		m.settingsRow = 0
+		m.settingsBuf = ""
+		m.settingsEdit = false
+		return m, nil
+	case tea.KeyCtrlT:
+		m.toggleTheme()
+		return m, nil
 	case tea.KeyEsc:
 		m.state = stateMenu
 		m.settingsRow = 0
@@ -911,16 +915,14 @@ func (m Model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyEnter:
 		item := settingsList[m.settingsRow]
-		switch item.kind {
-		case "bool":
-			switch m.settingsRow {
-			case 2:
-				m.sidebarCfg.BlindDefault = !m.sidebarCfg.BlindDefault
-			case 3:
-				m.sidebarCfg.FocusDefault = !m.sidebarCfg.FocusDefault
-			}
+		switch item.id {
+		case settingBlindDefault:
+			m.sidebarCfg.BlindDefault = !m.sidebarCfg.BlindDefault
 			SaveConfig(m.sidebarCfg)
-		case "number":
+		case settingFocusDefault:
+			m.sidebarCfg.FocusDefault = !m.sidebarCfg.FocusDefault
+			SaveConfig(m.sidebarCfg)
+		case settingTargetWPM, settingWordCount:
 			m.settingsEdit = true
 			m.settingsBuf = ""
 		}
@@ -1954,26 +1956,44 @@ func (m Model) viewTimeInput() string {
 
 // ── Settings view ─────────────────────────────────────────────────────────────
 
+func cfgSettingValue(cfg AppConfig, id settingID) int {
+	switch id {
+	case settingTargetWPM:
+		return cfg.TargetWPM
+	case settingWordCount:
+		return cfg.WordCount
+	case settingBlindDefault:
+		if cfg.BlindDefault {
+			return 1
+		}
+	case settingFocusDefault:
+		if cfg.FocusDefault {
+			return 1
+		}
+	}
+	return 0
+}
+
 func (m Model) viewSettings() string {
 	title := titleStyle.Render("settings")
 
 	labelW := 18
 	valW := 8
 
+	rowStyle := func(selected bool, s string) string {
+		if selected {
+			return selectedStyle.Render(s)
+		}
+		return subtleStyle.Render(s)
+	}
+
 	var rows []string
 	for i, item := range settingsList {
-		val := settingValue(m.sidebarCfg, i)
+		val := cfgSettingValue(m.sidebarCfg, item.id)
 		disp := settingDisplay(item, val, m.settingsEdit && m.settingsRow == i, m.settingsBuf)
 
 		selected := i == m.settingsRow && !m.settingsEdit
-		style := func(s string) string {
-			if selected {
-				return selectedStyle.Render(s)
-			}
-			return subtleStyle.Render(s)
-		}
-
-		label := lipgloss.NewStyle().Width(labelW).Inline(true).Render(style(item.label))
+		label := lipgloss.NewStyle().Width(labelW).Inline(true).Render(rowStyle(selected, item.label))
 		var valStr string
 		if m.settingsEdit && m.settingsRow == i {
 			valStr = lipgloss.NewStyle().
@@ -1983,7 +2003,7 @@ func (m Model) viewSettings() string {
 				Render(wpmStyle.Render(disp) +
 					lipgloss.NewStyle().Foreground(activeTheme.mauve).Render("█"))
 		} else {
-			valStr = lipgloss.NewStyle().Width(valW).Align(lipgloss.Center).Render(style(disp))
+			valStr = lipgloss.NewStyle().Width(valW).Align(lipgloss.Center).Render(rowStyle(selected, disp))
 		}
 		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, label, " ", valStr))
 	}

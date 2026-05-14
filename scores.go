@@ -160,6 +160,9 @@ func LoadConfig() AppConfig {
 	if cfg.TargetWPM < 0 {
 		cfg.TargetWPM = 0
 	}
+	if cfg.TargetWPM > 250 {
+		cfg.TargetWPM = 250
+	}
 	return cfg
 }
 
